@@ -36,22 +36,24 @@ Vector3 toRaylib(const Vector3D& v) {
 
 void setCameraPreset(Camera3D& camera, CameraPreset preset) {
     camera.target = Vector3{ 0.0f, 0.0f, 0.0f };
-    camera.up = Vector3{ 0.0f, 1.0f, 0.0f };
     
     switch (preset) {
         case PRESET_TOP:
-            camera.position = Vector3{ 0.0f, 30.0f, 0.0f };
+            camera.position = Vector3{ 0.0f, 35.0f, 0.01f };  // Slightly offset to avoid gimbal lock
+            camera.up = Vector3{ 0.0f, 0.0f, -1.0f };  // Z-axis points "up" from top view
             break;
         case PRESET_SIDE:
-            camera.position = Vector3{ 30.0f, 0.0f, 0.0f };
-            camera.up = Vector3{ 0.0f, 0.0f, 1.0f };
+            camera.position = Vector3{ 35.0f, 0.0f, 0.0f };
+            camera.up = Vector3{ 0.0f, 1.0f, 0.0f };
             break;
         case PRESET_FRONT:
-            camera.position = Vector3{ 0.0f, 0.0f, 30.0f };
+            camera.position = Vector3{ 0.0f, 0.0f, 35.0f };
+            camera.up = Vector3{ 0.0f, 1.0f, 0.0f };
             break;
         case PRESET_DEFAULT:
         default:
             camera.position = Vector3{ 20.0f, 20.0f, 20.0f };
+            camera.up = Vector3{ 0.0f, 1.0f, 0.0f };
             break;
     }
 }
@@ -61,7 +63,7 @@ int main() {
     const int screenWidth = 1600;
     const int screenHeight = 900;
     
-    InitWindow(screenWidth, screenHeight, "Mission Design Tool - Phase 3");
+    InitWindow(screenWidth, screenHeight, "MDV - By: Mikhael da Silva");
     SetTargetFPS(60);
     
     // Setup 3D camera
@@ -103,11 +105,71 @@ int main() {
     float animationSpeed = 1.0f;
     bool showElements = true;
     
+    // Camera control mode
+    bool freeCameraMode = true;
+    
     // Main loop
     while (!WindowShouldClose()) {
         
-        // Update camera
-        UpdateCamera(&camera, CAMERA_ORBITAL);
+        // Manual camera controls
+        if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
+            Vector2 mouseDelta = GetMouseDelta();
+            
+            // Rotate camera around target
+            float rotationSpeed = 0.003f;
+            
+            // Get camera vectors
+            Vector3 camPos = camera.position;
+            Vector3 target = camera.target;
+            
+            // Calculate spherical coordinates
+            Vector3 direction = { camPos.x - target.x, camPos.y - target.y, camPos.z - target.z };
+            float radius = sqrtf(direction.x*direction.x + direction.y*direction.y + direction.z*direction.z);
+            
+            // Horizontal rotation (around Y axis)
+            float angle = atan2f(direction.z, direction.x);
+            angle -= mouseDelta.x * rotationSpeed;
+            
+            // Vertical rotation
+            float elevation = asinf(direction.y / radius);
+            elevation -= mouseDelta.y * rotationSpeed;
+            
+            // Clamp elevation to avoid flipping
+            if (elevation > 1.5f) elevation = 1.5f;
+            if (elevation < -1.5f) elevation = -1.5f;
+            
+            // Convert back to Cartesian
+            camera.position.x = target.x + radius * cosf(elevation) * cosf(angle);
+            camera.position.y = target.y + radius * sinf(elevation);
+            camera.position.z = target.z + radius * cosf(elevation) * sinf(angle);
+        }
+        
+        // Mouse wheel zoom
+        float wheel = GetMouseWheelMove();
+        if (wheel != 0) {
+            Vector3 direction = { camera.position.x - camera.target.x,
+                                camera.position.y - camera.target.y,
+                                camera.position.z - camera.target.z };
+            float distance = sqrtf(direction.x*direction.x + direction.y*direction.y + direction.z*direction.z);
+            
+            // Zoom in/out
+            float zoomSpeed = distance * 0.1f;
+            distance -= wheel * zoomSpeed;
+            
+            // Clamp distance
+            if (distance < 10.0f) distance = 10.0f;
+            if (distance > 100.0f) distance = 100.0f;
+            
+            // Normalize and scale
+            float currentDist = sqrtf(direction.x*direction.x + direction.y*direction.y + direction.z*direction.z);
+            direction.x = direction.x / currentDist * distance;
+            direction.y = direction.y / currentDist * distance;
+            direction.z = direction.z / currentDist * distance;
+            
+            camera.position.x = camera.target.x + direction.x;
+            camera.position.y = camera.target.y + direction.y;
+            camera.position.z = camera.target.z + direction.z;
+        }
         
         // Update animation
         if (animationSpeed > 0.0f) {
@@ -182,11 +244,11 @@ int main() {
         EndMode3D();
         
         // Draw UI - Title
-        DrawText("Mission Design Tool - ISS Orbit", 10, 10, 24, WHITE);
+        DrawText("Mission Design Tool", 10, 10, 24, WHITE);
         
         // Controls info
         int yPos = 45;
-        DrawText("Controls: RMB:Rotate | Wheel:Zoom | SPACE:Pause | UP/DOWN:Speed | 1-4:Camera | E:Elements", 
+        DrawText("Controls: RMB: Rotate | Wheel: Zoom | SPACE: Pause | UP/DOWN: Speed | 1-4: Camera | E: Elements", 
                  10, yPos, 14, LIGHTGRAY);
         
         // Status bar
