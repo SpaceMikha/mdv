@@ -1,12 +1,24 @@
 cmake_minimum_required(VERSION 3.15)
 project(mdv)
 
-# Set C++17 standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Find raylib
+find_package(raylib QUIET)
+
+if (NOT raylib_FOUND)
+    include(FetchContent)
+    FetchContent_Declare(
+        raylib
+        GIT_REPOSITORY https://github.com/raysan5/raylib.git
+        GIT_TAG 5.0
+    )
+    FetchContent_MakeAvailable(raylib)
+endif()
+
 # Include directories
-include_directories(include)
+include_directories(${CMAKE_SOURCE_DIR}/include)
 
 # Source files
 set(SOURCES
@@ -15,12 +27,20 @@ set(SOURCES
     src/StateVector.cpp
     src/Integrator.cpp
     src/OrbitPropagator.cpp
+    src/OrbitalElements.cpp
 )
 
 # Create executable
-add_executable(mdv ${SOURCES})
+add_executable(${PROJECT_NAME} ${SOURCES})
 
-# Link standard library explicitly
-target_link_libraries(mdv -static-libgcc -static-libstdc++)
+# Link raylib
+target_link_libraries(${PROJECT_NAME} raylib)
 
-target_link_libraries(mdv raylib opengl32 gdi32 winmm)
+# Platform-specific settings
+if (WIN32)
+    target_link_libraries(${PROJECT_NAME} winmm)
+endif()
+
+if (APPLE)
+    target_link_libraries(${PROJECT_NAME} "-framework IOKit" "-framework Cocoa" "-framework OpenGL")
+endif()
