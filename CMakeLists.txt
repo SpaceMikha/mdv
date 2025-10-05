@@ -22,3 +22,5 @@ add_executable(mdv ${SOURCES})
 
 # Link standard library explicitly
 target_link_libraries(mdv -static-libgcc -static-libstdc++)
+
+target_link_libraries(mdv raylib opengl32 gdi32 winmm)
