@@ -6,6 +6,7 @@
 #include "StateVector.h"
 #include "OrbitPropagator.h"
 #include "OrbitalElements.h"
+#include "OrbitPresets.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -26,6 +27,16 @@ enum CameraPreset {
     PRESET_FRONT
 };
 
+struct Satellite {
+    std::vector<StateVector> orbit;
+    size_t currentFrame;
+    OrbitPreset preset;
+    bool visible;
+    
+    Satellite(const OrbitPreset& p, const std::vector<StateVector>& o)
+        : orbit(o), currentFrame(0), preset(p), visible(true) {}
+};
+
 Vector3 toRaylib(const Vector3D& v) {
     return Vector3{
         static_cast<float>(v.x * SCALE),
@@ -39,8 +50,8 @@ void setCameraPreset(Camera3D& camera, CameraPreset preset) {
     
     switch (preset) {
         case PRESET_TOP:
-            camera.position = Vector3{ 0.0f, 35.0f, 0.01f };  // Slightly offset to avoid gimbal lock
-            camera.up = Vector3{ 0.0f, 0.0f, -1.0f };  // Z-axis points "up" from top view
+            camera.position = Vector3{ 0.0f, 35.0f, 0.01f };
+            camera.up = Vector3{ 0.0f, 0.0f, -1.0f };
             break;
         case PRESET_SIDE:
             camera.position = Vector3{ 35.0f, 0.0f, 0.0f };
@@ -58,13 +69,21 @@ void setCameraPreset(Camera3D& camera, CameraPreset preset) {
     }
 }
 
+// Helper function to draw text with custom font
+void DrawTextCustom(const char* text, int x, int y, int fontSize, Color color) {
+    DrawText(text, x, y, fontSize, color);
+}
+
 int main() {
     // Initialize window
     const int screenWidth = 1600;
     const int screenHeight = 900;
     
-    InitWindow(screenWidth, screenHeight, "MDV - By: Mikhael da Silva");
+    InitWindow(screenWidth, screenHeight, "MDV");
     SetTargetFPS(60);
+    
+    // Enable MSAA antialiasing for smoother rendering
+    SetConfigFlags(FLAG_MSAA_4X_HINT);
     
     // Setup 3D camera
     Camera3D camera = { 0 };
@@ -72,41 +91,46 @@ int main() {
     camera.fovy = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
     
-    // Create ISS orbit
-    double altitude = 400.0;  // km
-    double r = EARTH_RADIUS + altitude;
-    double v_circular = std::sqrt(MU_EARTH / r);
-    
-    Vector3D pos(r, 0.0, 0.0);
-    Vector3D vel(0.0, v_circular, 0.0);
-    StateVector initialState(pos, vel, 0.0);
-    
-    // Calculate initial orbital elements
-    OrbitalElements elements = OrbitalElements::fromStateVector(initialState, MU_EARTH);
-    elements.print();
-    
-    // Propagate orbit
+    // Create orbit propagator
     OrbitPropagator propagator(MU_EARTH);
-    double period = 2.0 * M_PI * std::sqrt(r*r*r / MU_EARTH);
-    std::vector<StateVector> orbit = propagator.propagate(initialState, period, 30.0);
     
-    std::cout << "\nOrbit propagated: " << orbit.size() << " points\n";
+    // Get all available presets
+    std::vector<OrbitPreset> presets = OrbitPresets::getAllPresets(MU_EARTH);
+    
+    // Create satellites for each preset
+    std::vector<Satellite> satellites;
+    for (const auto& preset : presets) {
+        std::vector<StateVector> orbit = propagator.propagate(
+            preset.initialState, 
+            preset.period, 
+            preset.period / 100.0  // 100 points per orbit
+        );
+        satellites.push_back(Satellite(preset, orbit));
+        
+        std::cout << "Created orbit: " << preset.name << " (" << orbit.size() << " points)\n";
+    }
+    
+    // Start with only ISS visible
+    for (size_t i = 0; i < satellites.size(); i++) {
+        satellites[i].visible = (i == 0);  // Only ISS
+    }
+    
+    int activeSatellite = 0;  // Currently selected satellite for detailed view
+    
     std::cout << "\n=== Controls ===\n";
     std::cout << "Right Mouse:     Rotate camera\n";
     std::cout << "Mouse Wheel:     Zoom\n";
     std::cout << "SPACE:           Pause/Play\n";
     std::cout << "UP/DOWN:         Speed control\n";
+    std::cout << "Q/W/E/R/T/Y:     Toggle orbit visibility\n";
+    std::cout << "TAB:             Cycle active satellite\n";
     std::cout << "1/2/3/4:         Camera presets\n";
-    std::cout << "E:               Show/Hide elements\n";
+    std::cout << "H:               Show/Hide elements\n";
     std::cout << "ESC:             Exit\n";
     
     // Animation State
-    size_t currentFrame = 0;
     float animationSpeed = 1.0f;
     bool showElements = true;
-    
-    // Camera control mode
-    bool freeCameraMode = true;
     
     // Main loop
     while (!WindowShouldClose()) {
@@ -115,30 +139,23 @@ int main() {
         if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
             Vector2 mouseDelta = GetMouseDelta();
             
-            // Rotate camera around target
             float rotationSpeed = 0.003f;
             
-            // Get camera vectors
             Vector3 camPos = camera.position;
             Vector3 target = camera.target;
             
-            // Calculate spherical coordinates
             Vector3 direction = { camPos.x - target.x, camPos.y - target.y, camPos.z - target.z };
             float radius = sqrtf(direction.x*direction.x + direction.y*direction.y + direction.z*direction.z);
             
-            // Horizontal rotation (around Y axis)
             float angle = atan2f(direction.z, direction.x);
             angle -= mouseDelta.x * rotationSpeed;
             
-            // Vertical rotation
             float elevation = asinf(direction.y / radius);
             elevation -= mouseDelta.y * rotationSpeed;
             
-            // Clamp elevation to avoid flipping
             if (elevation > 1.5f) elevation = 1.5f;
             if (elevation < -1.5f) elevation = -1.5f;
             
-            // Convert back to Cartesian
             camera.position.x = target.x + radius * cosf(elevation) * cosf(angle);
             camera.position.y = target.y + radius * sinf(elevation);
             camera.position.z = target.z + radius * cosf(elevation) * sinf(angle);
@@ -152,15 +169,12 @@ int main() {
                                 camera.position.z - camera.target.z };
             float distance = sqrtf(direction.x*direction.x + direction.y*direction.y + direction.z*direction.z);
             
-            // Zoom in/out
             float zoomSpeed = distance * 0.1f;
             distance -= wheel * zoomSpeed;
             
-            // Clamp distance
             if (distance < 10.0f) distance = 10.0f;
-            if (distance > 100.0f) distance = 100.0f;
+            if (distance > 200.0f) distance = 200.0f;
             
-            // Normalize and scale
             float currentDist = sqrtf(direction.x*direction.x + direction.y*direction.y + direction.z*direction.z);
             direction.x = direction.x / currentDist * distance;
             direction.y = direction.y / currentDist * distance;
@@ -173,7 +187,11 @@ int main() {
         
         // Update animation
         if (animationSpeed > 0.0f) {
-            currentFrame = (currentFrame + static_cast<size_t>(animationSpeed)) % orbit.size();
+            for (auto& sat : satellites) {
+                if (sat.visible) {
+                    sat.currentFrame = (sat.currentFrame + static_cast<size_t>(animationSpeed)) % sat.orbit.size();
+                }
+            }
         }
         
         // Speed controls
@@ -192,11 +210,27 @@ int main() {
         if (IsKeyPressed(KEY_FOUR)) setCameraPreset(camera, PRESET_FRONT);
         
         // Toggle elements display
-        if (IsKeyPressed(KEY_E)) showElements = !showElements;
+        if (IsKeyPressed(KEY_H)) showElements = !showElements;
         
-        // Recalculate orbital elements for current state
+        // Toggle satellite visibility (Q/W/E/R/T/Y for satellites 0-5)
+        if (IsKeyPressed(KEY_Q) && satellites.size() > 0) satellites[0].visible = !satellites[0].visible;
+        if (IsKeyPressed(KEY_W) && satellites.size() > 1) satellites[1].visible = !satellites[1].visible;
+        if (IsKeyPressed(KEY_E) && satellites.size() > 2) satellites[2].visible = !satellites[2].visible;
+        if (IsKeyPressed(KEY_R) && satellites.size() > 3) satellites[3].visible = !satellites[3].visible;
+        if (IsKeyPressed(KEY_T) && satellites.size() > 4) satellites[4].visible = !satellites[4].visible;
+        if (IsKeyPressed(KEY_Y) && satellites.size() > 5) satellites[5].visible = !satellites[5].visible;
+        
+        // Cycle active satellite
+        if (IsKeyPressed(KEY_TAB)) {
+            do {
+                activeSatellite = (activeSatellite + 1) % satellites.size();
+            } while (!satellites[activeSatellite].visible && activeSatellite != 0);
+        }
+        
+        // Get current orbital elements for active satellite
         OrbitalElements currentElements = OrbitalElements::fromStateVector(
-            orbit[currentFrame], MU_EARTH
+            satellites[activeSatellite].orbit[satellites[activeSatellite].currentFrame], 
+            MU_EARTH
         );
         
         // Draw
@@ -215,102 +249,130 @@ int main() {
             DrawLine3D(Vector3{0, 0, 0}, Vector3{0, axisLength, 0}, GREEN);
             DrawLine3D(Vector3{0, 0, 0}, Vector3{0, 0, axisLength}, SKYBLUE);
             
-            // Draw orbit trajectory
-            for (size_t i = 1; i < orbit.size(); i++) {
-                Vector3 p1 = toRaylib(orbit[i-1].position);
-                Vector3 p2 = toRaylib(orbit[i].position);
-                DrawLine3D(p1, p2, YELLOW);
-            }
-            
-            // Draw animated spacecraft
-            Vector3 scPos = toRaylib(orbit[currentFrame].position);
-            DrawSphere(scPos, 0.3f, RED);
-            
-            // Draw velocity vector
-            Vector3D velScaled = orbit[currentFrame].velocity.normalized() * 1000.0;
-            Vector3 velEnd = toRaylib(orbit[currentFrame].position + velScaled);
-            DrawLine3D(scPos, velEnd, GREEN);
-            
-            // Draw periapsis and apoapsis markers
-            if (currentElements.eccentricity > 0.01) {
-                // Periapsis (closest point)
-                DrawSphere(toRaylib(orbit[0].position), 0.2f, ORANGE);
+            // Draw all visible satellites and orbits
+            for (size_t s = 0; s < satellites.size(); s++) {
+                if (!satellites[s].visible) continue;
                 
-                // Find apoapsis (opposite side)
-                size_t apoIdx = orbit.size() / 2;
-                DrawSphere(toRaylib(orbit[apoIdx].position), 0.2f, PURPLE);
+                auto& sat = satellites[s];
+                Color orbitColor = sat.preset.color;
+                Color dimmedColor = Fade(orbitColor, 0.3f);
+                
+                // Draw orbit trajectory
+                for (size_t i = 1; i < sat.orbit.size(); i++) {
+                    Vector3 p1 = toRaylib(sat.orbit[i-1].position);
+                    Vector3 p2 = toRaylib(sat.orbit[i].position);
+                    DrawLine3D(p1, p2, (s == activeSatellite) ? orbitColor : dimmedColor);
+                }
+                
+                // Draw spacecraft
+                Vector3 scPos = toRaylib(sat.orbit[sat.currentFrame].position);
+                float satSize = (s == activeSatellite) ? 0.4f : 0.25f;
+                DrawSphere(scPos, satSize, orbitColor);
+                
+                // Draw velocity vector for active satellite
+                if (s == activeSatellite) {
+                    Vector3D velScaled = sat.orbit[sat.currentFrame].velocity.normalized() * 2000.0;
+                    Vector3 velEnd = toRaylib(sat.orbit[sat.currentFrame].position + velScaled);
+                    DrawLine3D(scPos, velEnd, GREEN);
+                }
             }
             
         EndMode3D();
         
         // Draw UI - Title
-        DrawText("Mission Design Tool", 10, 10, 24, WHITE);
+        DrawText("Mission Design Tool - Multiple Orbits", 10, 10, 24, WHITE);
         
         // Controls info
         int yPos = 45;
-        DrawText("Controls: RMB: Rotate | Wheel: Zoom | SPACE: Pause | UP/DOWN: Speed | 1-4: Camera | E: Elements", 
+        DrawText("RMB:Rotate | Wheel:Zoom | SPACE:Pause | TAB:Switch | Q/W/E/R/T/Y:Toggle | H:Elements", 
                  10, yPos, 14, LIGHTGRAY);
         
         // Status bar
-        yPos += 30;
-        DrawText(TextFormat("Speed: %.1fx  |  Time: %.1f min  |  FPS: %d", 
+        yPos += 25;
+        DrawText(TextFormat("Speed: %.1fx | Active: %s | FPS: %d", 
                  animationSpeed, 
-                 orbit[currentFrame].time/60.0,
+                 satellites[activeSatellite].preset.name.c_str(),
                  GetFPS()), 
-                 10, yPos, 16, YELLOW);
+                 10, yPos, 16, satellites[activeSatellite].preset.color);
         
-        // Orbital elements panel
+        // Satellite list panel
+        int listX = 10;
+        int listY = 120;
+        int listW = 280;
+        int listH = 30 + satellites.size() * 25;
+        
+        DrawRectangle(listX, listY, listW, listH, Fade(BLACK, 0.8f));
+        DrawRectangleLines(listX, listY, listW, listH, SKYBLUE);
+        
+        listY += 10;
+        listX += 10;
+        
+        DrawText("SATELLITES", listX, listY, 16, SKYBLUE);
+        listY += 25;
+        
+        for (size_t i = 0; i < satellites.size(); i++) {
+            Color textColor = satellites[i].visible ? satellites[i].preset.color : GRAY;
+            const char* activeMarker = (i == activeSatellite) ? "> " : "  ";
+            DrawText(TextFormat("%s%s", activeMarker, satellites[i].preset.name.c_str()), 
+                     listX, listY, 14, textColor);
+            listY += 25;
+        }
+        
+        // Orbital elements panel (right side)
         if (showElements) {
             int panelX = screenWidth - 320;
             int panelY = 100;
             int panelW = 310;
-            int panelH = 400;
+            int panelH = 420;
             
-            // Semi-transparent background
             DrawRectangle(panelX, panelY, panelW, panelH, Fade(BLACK, 0.8f));
-            DrawRectangleLines(panelX, panelY, panelW, panelH, YELLOW);
+            DrawRectangleLines(panelX, panelY, panelW, panelH, satellites[activeSatellite].preset.color);
             
             panelY += 10;
             panelX += 10;
             
-            DrawText("ORBITAL ELEMENTS", panelX, panelY, 18, YELLOW);
+            DrawText("ORBITAL ELEMENTS", panelX, panelY, 18, satellites[activeSatellite].preset.color);
+            panelY += 25;
+            
+            DrawText(satellites[activeSatellite].preset.description.c_str(), 
+                     panelX, panelY, 11, LIGHTGRAY);
             panelY += 30;
             
             DrawText(TextFormat("Type: %s", currentElements.orbitType().c_str()), 
                      panelX, panelY, 14, WHITE);
             panelY += 25;
             
-            DrawText(TextFormat("Semi-major axis (a)"), panelX, panelY, 14, LIGHTGRAY);
+            DrawText("Semi-major axis (a)", panelX, panelY, 14, LIGHTGRAY);
             panelY += 18;
             DrawText(TextFormat("  %.2f km", currentElements.semiMajorAxis), 
                      panelX, panelY, 14, WHITE);
             panelY += 25;
             
-            DrawText(TextFormat("Eccentricity (e)"), panelX, panelY, 14, LIGHTGRAY);
+            DrawText("Eccentricity (e)", panelX, panelY, 14, LIGHTGRAY);
             panelY += 18;
             DrawText(TextFormat("  %.6f", currentElements.eccentricity), 
                      panelX, panelY, 14, WHITE);
             panelY += 25;
             
-            DrawText(TextFormat("Inclination (i)"), panelX, panelY, 14, LIGHTGRAY);
+            DrawText("Inclination (i)", panelX, panelY, 14, LIGHTGRAY);
             panelY += 18;
             DrawText(TextFormat("  %.2f deg", currentElements.inclinationDeg()), 
                      panelX, panelY, 14, WHITE);
             panelY += 25;
             
-            DrawText(TextFormat("RAAN (Omega)"), panelX, panelY, 14, LIGHTGRAY);
+            DrawText("RAAN (Omega)", panelX, panelY, 14, LIGHTGRAY);
             panelY += 18;
             DrawText(TextFormat("  %.2f deg", currentElements.raanDeg()), 
                      panelX, panelY, 14, WHITE);
             panelY += 25;
             
-            DrawText(TextFormat("Arg. Periapsis (omega)"), panelX, panelY, 14, LIGHTGRAY);
+            DrawText("Arg. Periapsis (omega)", panelX, panelY, 14, LIGHTGRAY);
             panelY += 18;
             DrawText(TextFormat("  %.2f deg", currentElements.argumentOfPeriapsisDeg()), 
                      panelX, panelY, 14, WHITE);
             panelY += 25;
             
-            DrawText(TextFormat("True Anomaly (nu)"), panelX, panelY, 14, LIGHTGRAY);
+            DrawText("True Anomaly (nu)", panelX, panelY, 14, LIGHTGRAY);
             panelY += 18;
             DrawText(TextFormat("  %.2f deg", currentElements.trueAnomalyDeg()), 
                      panelX, panelY, 14, WHITE);
@@ -318,38 +380,12 @@ int main() {
             
             DrawText(TextFormat("Period: %.2f min", currentElements.period / 60.0), 
                      panelX, panelY, 14, GREEN);
+            panelY += 20;
+            
+            DrawText(TextFormat("Altitude: %.1f km", 
+                     satellites[activeSatellite].orbit[satellites[activeSatellite].currentFrame].altitude(EARTH_RADIUS)), 
+                     panelX, panelY, 14, GREEN);
         }
-        
-        // State vector panel (left side)
-        int stateX = 10;
-        int stateY = 100;
-        int stateW = 280;
-        int stateH = 180;
-        
-        DrawRectangle(stateX, stateY, stateW, stateH, Fade(BLACK, 0.8f));
-        DrawRectangleLines(stateX, stateY, stateW, stateH, SKYBLUE);
-        
-        stateY += 10;
-        stateX += 10;
-        
-        DrawText("STATE VECTOR", stateX, stateY, 18, SKYBLUE);
-        stateY += 30;
-        
-        Vector3D pos_curr = orbit[currentFrame].position;
-        Vector3D vel_curr = orbit[currentFrame].velocity;
-        
-        DrawText(TextFormat("Position (km):"), stateX, stateY, 14, LIGHTGRAY);
-        stateY += 20;
-        DrawText(TextFormat("  X: %8.2f", pos_curr.x), stateX, stateY, 13, WHITE);
-        stateY += 18;
-        DrawText(TextFormat("  Y: %8.2f", pos_curr.y), stateX, stateY, 13, WHITE);
-        stateY += 18;
-        DrawText(TextFormat("  Z: %8.2f", pos_curr.z), stateX, stateY, 13, WHITE);
-        stateY += 25;
-        
-        DrawText(TextFormat("Velocity (km/s):"), stateX, stateY, 14, LIGHTGRAY);
-        stateY += 20;
-        DrawText(TextFormat("  %.4f", vel_curr.magnitude()), stateX, stateY, 13, GREEN);
         
         EndDrawing();
     }
