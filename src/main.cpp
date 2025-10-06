@@ -107,7 +107,7 @@ int main() {
         );
         satellites.push_back(Satellite(preset, orbit));
         
-        std::cout << "Created orbit: " << preset.name << " (" << orbit.size() << " points)\n";
+        std::cout << "Orbit created: " << preset.name << " (" << orbit.size() << " points)\n";
     }
     
     // Start with all satellites visible
