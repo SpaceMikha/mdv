@@ -2,8 +2,6 @@
 #include <cmath>
 #include "raylib.h"
 
-
-// Here we hardcode define pi
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -135,6 +133,48 @@ OrbitPreset OrbitPresets::createPreset(OrbitType type, double mu) {
                              state, period, PURPLE);
         }
         
+        case ORBIT_TUNDRA: {
+            // Tundra: Highly eccentric, 63.4° inclination, ~24h period
+            // Periapsis ~20,000 km, Apoapsis ~46,000 km
+            StateVector state = createStateFromOrbitalParams(20000.0, 63.4, 0.27, 270.0, mu);
+            double a = (EARTH_RADIUS + 20000.0 + EARTH_RADIUS + 46000.0) / 2.0;
+            double period = 2.0 * M_PI * std::sqrt(a*a*a / mu);
+            return OrbitPreset(ORBIT_TUNDRA, "Tundra",
+                             "Tundra Orbit, 20,000-46,000 km, 63.4° incl, 24h period",
+                             state, period, PINK);
+        }
+        
+        case ORBIT_GTO: {
+            // GTO: Geostationary Transfer Orbit
+            // Periapsis ~200 km, Apoapsis ~35,786 km (GEO altitude)
+            StateVector state = createStateFromOrbitalParams(200.0, 7.0, 0.73, 180.0, mu);
+            double a = (EARTH_RADIUS + 200.0 + EARTH_RADIUS + 35786.0) / 2.0;
+            double period = 2.0 * M_PI * std::sqrt(a*a*a / mu);
+            return OrbitPreset(ORBIT_GTO, "GTO",
+                             "Geostationary Transfer, 200-35,786 km, 7° inclination",
+                             state, period, LIME);
+        }
+        
+        case ORBIT_HUBBLE: {
+            // Hubble Space Telescope: ~540 km altitude, 28.5° inclination
+            StateVector state = createStateFromOrbitalParams(540.0, 28.5, 0.0, 0.0, mu);
+            double a = EARTH_RADIUS + 540.0;
+            double period = 2.0 * M_PI * std::sqrt(a*a*a / mu);
+            return OrbitPreset(ORBIT_HUBBLE, "Hubble",
+                             "Hubble Space Telescope, 540 km altitude, 28.5° incl",
+                             state, period, GOLD);
+        }
+        
+        case ORBIT_STARLINK: {
+            // Starlink: ~550 km altitude, 53° inclination
+            StateVector state = createStateFromOrbitalParams(550.0, 53.0, 0.0, 0.0, mu);
+            double a = EARTH_RADIUS + 550.0;
+            double period = 2.0 * M_PI * std::sqrt(a*a*a / mu);
+            return OrbitPreset(ORBIT_STARLINK, "Starlink",
+                             "Starlink Constellation, 550 km altitude, 53° incl",
+                             state, period, MAROON);
+        }
+        
         default:
             return createPreset(ORBIT_ISS, mu);
     }
@@ -156,6 +196,10 @@ std::string OrbitPresets::getPresetName(OrbitType type) {
         case ORBIT_GPS: return "GPS";
         case ORBIT_SUNSYNC: return "Sun-Sync";
         case ORBIT_POLAR: return "Polar";
+        case ORBIT_TUNDRA: return "Tundra";
+        case ORBIT_GTO: return "GTO";
+        case ORBIT_HUBBLE: return "Hubble";
+        case ORBIT_STARLINK: return "Starlink";
         default: return "Unknown";
     }
 }

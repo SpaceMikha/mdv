@@ -13,9 +13,13 @@ enum OrbitType {
     ORBIT_ISS,           // International Space Station (~400 km, 51.6° inclination)
     ORBIT_GEO,           // Geostationary Orbit (35,786 km altitude, 0° inclination)
     ORBIT_MOLNIYA,       // Molniya Orbit (highly eccentric, 63.4° inclination)
-    ORBIT_GPS,           // GPS Constellation (20,200 km altitude, 55° inclination)
+    ORBIT_GPS,           // GPS Constellation (20,200 km, 55° inclination)
     ORBIT_SUNSYNC,       // Sun-Synchronous (600 km altitude, 98° inclination)
     ORBIT_POLAR,         // Polar Orbit (600 km altitude, 90° inclination)
+    ORBIT_TUNDRA,        // Tundra Orbit (highly eccentric, 63.4° inclination, 24h period)
+    ORBIT_GTO,           // Geostationary Transfer Orbit (200 km x 35,786 km)
+    ORBIT_HUBBLE,        // Hubble Space Telescope (540 km, 28.5° inclination)
+    ORBIT_STARLINK,      // Starlink Constellation (550 km, 53° inclination)
     ORBIT_COUNT
 };
 
