@@ -110,9 +110,9 @@ int main() {
         std::cout << "Created orbit: " << preset.name << " (" << orbit.size() << " points)\n";
     }
     
-    // Start with only ISS visible
+    // Start with all satellites visible
     for (size_t i = 0; i < satellites.size(); i++) {
-        satellites[i].visible = (i == 0);  // Only ISS
+        satellites[i].visible = true;
     }
     
     int activeSatellite = 0;  // Currently selected satellite for detailed view
@@ -122,14 +122,15 @@ int main() {
     std::cout << "Mouse Wheel:     Zoom\n";
     std::cout << "SPACE:           Pause/Play\n";
     std::cout << "UP/DOWN:         Speed control\n";
-    std::cout << "Q/W/E/R/T/Y:     Toggle orbit visibility\n";
+    std::cout << "1-4:             Camera presets\n";
+    std::cout << "Q/W/E/R/T/Y/U/I/O/P: Toggle orbits\n";
     std::cout << "TAB:             Cycle active satellite\n";
-    std::cout << "1/2/3/4:         Camera presets\n";
     std::cout << "H:               Show/Hide elements\n";
     std::cout << "ESC:             Exit\n";
     
     // Animation State
     float animationSpeed = 1.0f;
+    float animationAccumulator = 0.0f;
     bool showElements = true;
     
     // Main loop
@@ -185,11 +186,15 @@ int main() {
             camera.position.z = camera.target.z + direction.z;
         }
         
-        // Update animation
-        if (animationSpeed > 0.0f) {
+        // Update animation with accumulator for fractional speeds
+        if (animationSpeed > 0.01f) {
+            animationAccumulator += animationSpeed;
+            size_t framesToAdvance = static_cast<size_t>(animationAccumulator);
+            animationAccumulator -= framesToAdvance;  // Keep the fractional part
+            
             for (auto& sat : satellites) {
                 if (sat.visible) {
-                    sat.currentFrame = (sat.currentFrame + static_cast<size_t>(animationSpeed)) % sat.orbit.size();
+                    sat.currentFrame = (sat.currentFrame + framesToAdvance) % sat.orbit.size();
                 }
             }
         }
@@ -201,7 +206,7 @@ int main() {
         if (IsKeyPressed(KEY_UP)) animationSpeed *= 2.0f;
         if (IsKeyPressed(KEY_DOWN)) animationSpeed *= 0.5f;
         if (animationSpeed > 10.0f) animationSpeed = 10.0f;
-        if (animationSpeed < 0.1f && animationSpeed > 0.0f) animationSpeed = 0.1f;
+        if (animationSpeed < 0.05f && animationSpeed > 0.0f) animationSpeed = 0.05f;
         
         // Camera presets
         if (IsKeyPressed(KEY_ONE)) setCameraPreset(camera, PRESET_DEFAULT);
@@ -212,13 +217,17 @@ int main() {
         // Toggle elements display
         if (IsKeyPressed(KEY_H)) showElements = !showElements;
         
-        // Toggle satellite visibility (Q/W/E/R/T/Y for satellites 0-5)
+        // Toggle satellite visibility (Q/W/E/R/T/Y/U/I/O/P for satellites 0-9)
         if (IsKeyPressed(KEY_Q) && satellites.size() > 0) satellites[0].visible = !satellites[0].visible;
         if (IsKeyPressed(KEY_W) && satellites.size() > 1) satellites[1].visible = !satellites[1].visible;
         if (IsKeyPressed(KEY_E) && satellites.size() > 2) satellites[2].visible = !satellites[2].visible;
         if (IsKeyPressed(KEY_R) && satellites.size() > 3) satellites[3].visible = !satellites[3].visible;
         if (IsKeyPressed(KEY_T) && satellites.size() > 4) satellites[4].visible = !satellites[4].visible;
         if (IsKeyPressed(KEY_Y) && satellites.size() > 5) satellites[5].visible = !satellites[5].visible;
+        if (IsKeyPressed(KEY_U) && satellites.size() > 6) satellites[6].visible = !satellites[6].visible;
+        if (IsKeyPressed(KEY_I) && satellites.size() > 7) satellites[7].visible = !satellites[7].visible;
+        if (IsKeyPressed(KEY_O) && satellites.size() > 8) satellites[8].visible = !satellites[8].visible;
+        if (IsKeyPressed(KEY_P) && satellites.size() > 9) satellites[9].visible = !satellites[9].visible;
         
         // Cycle active satellite
         if (IsKeyPressed(KEY_TAB)) {
@@ -256,24 +265,56 @@ int main() {
                 auto& sat = satellites[s];
                 Color orbitColor = sat.preset.color;
                 Color dimmedColor = Fade(orbitColor, 0.3f);
+                bool isActive = (s == activeSatellite);
                 
-                // Draw orbit trajectory
+                // Draw orbit trajectory with variable opacity
+                Color lineColor = isActive ? orbitColor : Fade(orbitColor, 0.5f);
                 for (size_t i = 1; i < sat.orbit.size(); i++) {
                     Vector3 p1 = toRaylib(sat.orbit[i-1].position);
                     Vector3 p2 = toRaylib(sat.orbit[i].position);
-                    DrawLine3D(p1, p2, (s == activeSatellite) ? orbitColor : dimmedColor);
+                    DrawLine3D(p1, p2, lineColor);
                 }
                 
                 // Draw spacecraft
                 Vector3 scPos = toRaylib(sat.orbit[sat.currentFrame].position);
-                float satSize = (s == activeSatellite) ? 0.4f : 0.25f;
+                float satSize = isActive ? 0.4f : 0.25f;
                 DrawSphere(scPos, satSize, orbitColor);
                 
                 // Draw velocity vector for active satellite
-                if (s == activeSatellite) {
+                if (isActive) {
                     Vector3D velScaled = sat.orbit[sat.currentFrame].velocity.normalized() * 2000.0;
                     Vector3 velEnd = toRaylib(sat.orbit[sat.currentFrame].position + velScaled);
                     DrawLine3D(scPos, velEnd, GREEN);
+                }
+                
+                // Draw periapsis and apoapsis markers for elliptical orbits (active only)
+                if (isActive) {
+                    OrbitalElements elements = OrbitalElements::fromStateVector(sat.orbit[0], MU_EARTH);
+                    if (elements.eccentricity > 0.01) {
+                        // Periapsis marker (closest point) - Orange sphere
+                        size_t periIdx = 0;
+                        DrawSphere(toRaylib(sat.orbit[periIdx].position), 0.3f, ORANGE);
+                        
+                        // Apoapsis marker (farthest point) - Purple sphere
+                        size_t apoIdx = sat.orbit.size() / 2;
+                        DrawSphere(toRaylib(sat.orbit[apoIdx].position), 0.3f, PURPLE);
+                        
+                        // Draw apse line
+                        DrawLine3D(
+                            toRaylib(sat.orbit[periIdx].position),
+                            toRaylib(sat.orbit[apoIdx].position),
+                            Fade(WHITE, 0.3f)
+                        );
+                    }
+                }
+                
+                // Draw small trail behind satellite (last 10 positions)
+                if (sat.currentFrame > 10) {
+                    for (size_t i = sat.currentFrame - 10; i < sat.currentFrame; i++) {
+                        float alpha = (float)(i - (sat.currentFrame - 10)) / 10.0f;
+                        Vector3 trailPos = toRaylib(sat.orbit[i].position);
+                        DrawSphere(trailPos, 0.1f, Fade(orbitColor, alpha * 0.5f));
+                    }
                 }
             }
             
