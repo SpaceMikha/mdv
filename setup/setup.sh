@@ -9,7 +9,7 @@ echo "=================================="
 echo ""
 
 # Check if running in MSYS2
-if [[ "$OSTYPE" != "msys" ]]; then
+if [[ "$OSTYPE" != msys* && "$OSTYPE" != mingw* ]]; then
     echo "ERROR: This script must be run in MSYS2 MinGW64 terminal!"
     echo "Please open 'MSYS2 MinGW64' (purple icon) and run this script again."
     exit 1
