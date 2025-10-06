@@ -1080,12 +1080,12 @@ Validated against:
 ### Building
 
 ```bash
-git clone https://github.com/yourusername/mission-design-tool
-cd mission-design-tool
+git clone https://github.com/SpaceMikha/mdv
+cd mdv
 mkdir build && cd build
 cmake ..
 cmake --build .
-./MissionDesignTool
+./mdv.exe
 ```
 
 ## 9.2 Quick Start
