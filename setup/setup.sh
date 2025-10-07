@@ -1,50 +1,53 @@
 #!/bin/bash
 
-# MDV - Auto Setup Script
-# This script sets up the development environment on a fresh Windows machine with MSYS2
+# MDV - Mission Design Visualizer - Setup Script
+# Run this in MSYS2 MinGW64 terminal on a fresh Windows machine
 
 echo "=================================="
-echo "MDV - Auto Setup"
+echo "MDV - Auto Setup for New PC"
 echo "=================================="
 echo ""
 
 # Check if running in MSYS2
 if [[ "$OSTYPE" != msys* && "$OSTYPE" != mingw* ]]; then
     echo "ERROR: This script must be run in MSYS2 MinGW64 terminal!"
-    echo "Please open 'MSYS2 MinGW64' (purple icon) and run this script again."
+    echo "Please:"
+    echo "  1. Install MSYS2 from https://www.msys2.org/"
+    echo "  2. Open 'MSYS2 MinGW64' (purple icon)"
+    echo "  3. Run this script again"
     exit 1
 fi
 
-echo "Step 1: Updating MSYS2 package database..."
+echo "Step 1/5: Updating MSYS2 package database..."
 pacman -Syu --noconfirm
 
 echo ""
-echo "Step 2: Installing MinGW64 toolchain (gcc, g++, make)..."
+echo "Step 2/5: Installing MinGW64 toolchain (gcc, g++, make)..."
 pacman -S --needed --noconfirm mingw-w64-x86_64-toolchain
 
 echo ""
-echo "Step 3: Installing CMake..."
+echo "Step 3/5: Installing CMake..."
 pacman -S --needed --noconfirm mingw-w64-x86_64-cmake
 
 echo ""
-echo "Step 4: Installing Raylib..."
+echo "Step 4/5: Installing Raylib graphics library..."
 pacman -S --needed --noconfirm mingw-w64-x86_64-raylib
 
 echo ""
-echo "Step 5: Installing Git (if not already installed)..."
-pacman -S --needed --noconfirm git
+echo "Step 5/5: Installing GLFW (required by Raylib)..."
+pacman -S --needed --noconfirm mingw-w64-x86_64-glfw
 
 echo ""
-echo "Step 6: Verifying installations..."
-echo -n "GCC version: "
+echo "Verifying installations..."
+echo "=================================="
 g++ --version | head -n 1
-echo -n "CMake version: "
 cmake --version | head -n 1
-echo -n "Git version: "
-git --version
+echo "Raylib: $(pacman -Q mingw-w64-x86_64-raylib)"
+echo "GLFW: $(pacman -Q mingw-w64-x86_64-glfw)"
+echo "=================================="
 
 echo ""
-echo "Step 7: Adding MinGW to PATH for Git Bash..."
+echo "Configuring Git Bash compatibility..."
 BASHRC="$HOME/.bashrc"
 PATH_LINE='export PATH="/c/msys64/mingw64/bin:$PATH"'
 
@@ -56,43 +59,16 @@ else
 fi
 
 echo ""
-echo "Step 8: Clone/Setup project (optional)..."
-read -p "Do you want to clone the project from a git repository? (y/n): " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    read -p "Enter git repository URL: " REPO_URL
-    read -p "Enter target directory name (default: mdv): " DIR_NAME
-    DIR_NAME=${DIR_NAME:-mdv}
-    
-    if [ -d "$DIR_NAME" ]; then
-        echo "Directory $DIR_NAME already exists. Skipping clone."
-    else
-        git clone "$REPO_URL" "$DIR_NAME"
-        cd "$DIR_NAME"
-    fi
-else
-    echo "Skipping project clone. You can manually copy your project files."
-fi
-
-echo ""
 echo "=================================="
 echo "Setup Complete!"
 echo "=================================="
 echo ""
-echo "Installed packages:"
-echo "  - MinGW64 toolchain (gcc, g++, make)"
-echo "  - CMake"
-echo "  - Raylib"
-echo "  - Git"
-echo ""
 echo "Next steps:"
-echo "  1. Copy your project files to this computer (or clone from git)"
-echo "  2. Navigate to project directory: cd /c/path/to/mdv"
-echo "  3. Create build directory: mkdir build && cd build"
-echo "  4. Configure project: cmake -G \"MinGW Makefiles\" .."
-echo "  5. Build project: mingw32-make"
-echo "  6. Run: ./mdv.exe"
+echo "  1. Close this MSYS2 terminal"
+echo "  2. Open Git Bash"
+echo "  3. Navigate to your project: cd /c/path/to/mdv"
+echo "  4. Run: ./build.sh"
 echo ""
-echo "To use these tools in Git Bash, restart your terminal or run:"
+echo "Note: The first time you use Git Bash after setup, run:"
 echo "  source ~/.bashrc"
 echo ""

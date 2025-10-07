@@ -1,11 +1,13 @@
 cmake_minimum_required(VERSION 3.15)
-project(mdv)
+
+set(CMAKE_C_COMPILER "C:/msys64/mingw64/bin/gcc.exe")
+set(CMAKE_CXX_COMPILER "C:/msys64/mingw64/bin/g++.exe")
+
+
+project(mdv LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# Use system-installed raylib
-find_package(raylib REQUIRED)
 
 # Include directories
 include_directories(${CMAKE_SOURCE_DIR}/include)
@@ -18,19 +20,25 @@ set(SOURCES
     src/Integrator.cpp
     src/OrbitPropagator.cpp
     src/OrbitalElements.cpp
+    src/OrbitPresets.cpp
 )
 
-# Create executable
 add_executable(${PROJECT_NAME} ${SOURCES})
 
-# Link raylib
-target_link_libraries(${PROJECT_NAME} raylib)
-
-# Platform-specific settings
 if (WIN32)
-    target_link_libraries(${PROJECT_NAME} winmm)
-endif()
+    # Include and link directories
+    target_include_directories(${PROJECT_NAME} PRIVATE 
+        C:/msys64/mingw64/include
+    )
+    link_directories(C:/msys64/mingw64/lib)
 
-if (APPLE)
-    target_link_libraries(${PROJECT_NAME} "-framework IOKit" "-framework Cocoa" "-framework OpenGL")
+    
+    target_link_libraries(${PROJECT_NAME}
+    raylib
+    glfw3
+    opengl32
+    gdi32
+    winmm
+)
+
 endif()
