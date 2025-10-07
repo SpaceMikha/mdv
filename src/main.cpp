@@ -2,6 +2,7 @@
 #include <cmath>
 #include <vector>
 #include "raylib.h"
+#include "rlgl.h"
 #include "Vector3D.h"
 #include "StateVector.h"
 #include "OrbitPropagator.h"
@@ -18,6 +19,8 @@ const double EARTH_RADIUS = 6378.137; // km
 
 // Convert km to rendering units
 const float SCALE = 0.001f;  // 1 unit = 1000 km
+
+Vector3 toRaylib(const Vector3D& v);
 
 // Camera presets
 enum CameraPreset {
@@ -83,6 +86,86 @@ struct FontSystem {
             if (bold.texture.id != 1) UnloadFont(bold);
             loaded = false;
         }
+    }
+};
+
+// Earth rendering system
+struct EarthSystem {
+    Model earthModel;
+    Texture2D earthTexture;
+    bool textureLoaded;
+    float rotationAngle;
+    
+    EarthSystem() : textureLoaded(false), rotationAngle(0.0f) {}
+    
+    void load() {
+        std::cout << "Loading Earth...\n";
+        
+        // Create a sphere mesh for Earth with proper aspect ratio
+        // Use more rings than slices to prevent squashing
+        Mesh sphereMesh = GenMeshSphere(EARTH_RADIUS * SCALE, 64, 64);
+        earthModel = LoadModelFromMesh(sphereMesh);
+        
+        // Try to load Earth texture
+        earthTexture = LoadTexture("../assets/textures/planet.png");
+        if (earthTexture.id == 0) {
+            earthTexture = LoadTexture("../assets/textures/planet.jpg");
+        }
+        
+        if (earthTexture.id != 0) {
+            std::cout << "  Earth texture loaded!\n";
+            
+            // Set texture wrapping to repeat
+            SetTextureWrap(earthTexture, TEXTURE_WRAP_REPEAT);
+            SetTextureFilter(earthTexture, TEXTURE_FILTER_BILINEAR);
+            
+            SetMaterialTexture(&earthModel.materials[0], MATERIAL_MAP_DIFFUSE, earthTexture);
+            textureLoaded = true;
+        } else {
+            std::cout << "  No texture found, using default blue sphere\n";
+            textureLoaded = false;
+        }
+    }
+    
+    void update(float deltaTime) {
+        // Rotate Earth slowly (one full rotation every 60 seconds)
+        rotationAngle += deltaTime * 6.0f;  // 6 degrees per second = 360 degrees in 60 seconds
+        if (rotationAngle >= 360.0f) rotationAngle -= 360.0f;
+    }
+    
+    void draw() {
+        if (textureLoaded) {
+            // Draw with proper orientation corrections
+            rlPushMatrix();
+                // First: Flip the texture right-side up (rotate 180° around X)
+                rlRotatef(180.0f, 1, 0, 0);
+                
+                // Second: Rotate 180° to put Americas on the right side
+                rlRotatef(180.0f, 0, 1, 0);
+                
+                // Third: Apply Earth's 23.5° axial tilt
+                rlRotatef(-23.5f, 1, 0, 0);
+                
+                // Fourth: Apply day/night rotation
+                rlRotatef(rotationAngle, 0, 1, 0);
+                
+                DrawModel(earthModel, Vector3{0, 0, 0}, 1.0f, WHITE);
+            rlPopMatrix();
+        } else {
+            // Fallback: Draw plain blue sphere with tilt
+            rlPushMatrix();
+                rlRotatef(23.5f, 1, 0, 0);  // Apply 23.5° tilt
+                rlRotatef(rotationAngle, 0, 1, 0);  // Rotate around tilted Y axis
+                DrawSphere(Vector3{0, 0, 0}, EARTH_RADIUS * SCALE, BLUE);
+            rlPopMatrix();
+        }
+    }
+    
+    void unload() {
+        if (textureLoaded) {
+            UnloadTexture(earthTexture);
+        }
+        UnloadModel(earthModel);
     }
 };
 
@@ -196,47 +279,38 @@ void setCameraPreset(Camera3D& camera, CameraPreset preset) {
 
 // Draw infinite equatorial plane grid
 void drawEquatorialGrid() {
-    // Create a well-spaced grid with good perspective
-    float spacing = 5.0f;     // Space between grid lines (in render units, so 5000 km)
-    int numLines = 20;        // Number of lines in each direction from center
+    float spacing = 5.0f;
+    int numLines = 20;
     
-    // Draw grid lines parallel to X axis (running along Z direction)
     for (int i = -numLines; i <= numLines; i++) {
         float z = i * spacing;
-        
-        // Calculate fade based on distance from center
         float distFromCenter = fabs((float)i) / (float)numLines;
-        float alpha = (1.0f - distFromCenter * distFromCenter) * 0.4f;  // Quadratic fade looks better
+        float alpha = (1.0f - distFromCenter * distFromCenter) * 0.4f;
         Color lineColor = Fade(GRAY, alpha);
         
-        // Make center lines slightly brighter
         if (i == 0) {
             lineColor = Fade(SKYBLUE, 0.3f);
         }
         
         DrawLine3D(
-            Vector3{-numLines * spacing, 0.01f, z},  // Slight Y offset to avoid z-fighting
+            Vector3{-numLines * spacing, 0.01f, z},
             Vector3{numLines * spacing, 0.01f, z},
             lineColor
         );
     }
     
-    // Draw grid lines parallel to Z axis (running along X direction)
     for (int i = -numLines; i <= numLines; i++) {
         float x = i * spacing;
-        
-        // Calculate fade based on distance from center
         float distFromCenter = fabs((float)i) / (float)numLines;
-        float alpha = (1.0f - distFromCenter * distFromCenter) * 0.4f;  // Quadratic fade
+        float alpha = (1.0f - distFromCenter * distFromCenter) * 0.4f;
         Color lineColor = Fade(GRAY, alpha);
         
-        // Make center lines slightly brighter
         if (i == 0) {
             lineColor = Fade(RED, 0.3f);
         }
         
         DrawLine3D(
-            Vector3{x, 0.01f, -numLines * spacing},  // Slight Y offset to avoid z-fighting
+            Vector3{x, 0.01f, -numLines * spacing},
             Vector3{x, 0.01f, numLines * spacing},
             lineColor
         );
@@ -247,28 +321,24 @@ void drawEquatorialGrid() {
 void drawReferenceCircles() {
     const int segments = 64;
     
-    // LEO boundary (2000 km)
     float leoRadius = (EARTH_RADIUS + 2000.0) * SCALE;
     Color leoColor = Fade(Color{100, 200, 255, 255}, 0.3f);
     DrawCircle3D(Vector3{0, 0, 0}, leoRadius, Vector3{1, 0, 0}, 90.0f, leoColor);
     
-    // MEO boundary (35,000 km) / GEO altitude
     float geoRadius = (EARTH_RADIUS + 35786.0) * SCALE;
     Color geoColor = Fade(Color{255, 100, 255, 255}, 0.3f);
     DrawCircle3D(Vector3{0, 0, 0}, geoRadius, Vector3{1, 0, 0}, 90.0f, geoColor);
 }
 
-// Draw orbital plane for active satellite
+// Draw orbital plane
 void drawOrbitalPlane(const std::vector<StateVector>& orbit, Color color) {
     if (orbit.size() < 3) return;
     
-    // Get orbital plane normal vector from position and velocity
     Vector3D r = orbit[0].position;
     Vector3D v = orbit[0].velocity;
-    Vector3D h = r.cross(v);  // Angular momentum vector (perpendicular to orbital plane)
+    Vector3D h = r.cross(v);
     h = h.normalized();
     
-    // Find the maximum radius of the orbit for plane size
     double maxR = 0;
     for (const auto& state : orbit) {
         double r = state.position.magnitude();
@@ -277,28 +347,22 @@ void drawOrbitalPlane(const std::vector<StateVector>& orbit, Color color) {
     
     float planeSize = maxR * SCALE * 1.2f;
     
-    // Draw a transparent grid on the orbital plane
     int gridLines = 10;
     float step = planeSize * 2.0f / gridLines;
     
-    // We need to create two perpendicular vectors in the orbital plane
     Vector3D up(0, 1, 0);
     Vector3D right = h.cross(up).normalized();
     Vector3D forward = right.cross(h).normalized();
     
-    Color planeColor = Fade(color, 0.15f);
     Color lineColor = Fade(color, 0.25f);
     
-    // Draw grid lines in orbital plane
     for (int i = -gridLines/2; i <= gridLines/2; i++) {
         float offset = i * step;
         
-        // Lines along 'right' direction
         Vector3D start1 = right * (-planeSize) + forward * offset;
         Vector3D end1 = right * planeSize + forward * offset;
         DrawLine3D(toRaylib(start1), toRaylib(end1), lineColor);
         
-        // Lines along 'forward' direction
         Vector3D start2 = forward * (-planeSize) + right * offset;
         Vector3D end2 = forward * planeSize + right * offset;
         DrawLine3D(toRaylib(start2), toRaylib(end2), lineColor);
@@ -307,7 +371,7 @@ void drawOrbitalPlane(const std::vector<StateVector>& orbit, Color color) {
 
 void drawKeyboardLegend(const FontSystem& fonts, int screenWidth, int screenHeight) {
     int panelW = 650;
-    int panelH = 540;  // Increased to fit new controls
+    int panelH = 600;
     int panelX = (screenWidth - panelW) / 2;
     int panelY = (screenHeight - panelH) / 2;
     
@@ -330,6 +394,9 @@ void drawKeyboardLegend(const FontSystem& fonts, int screenWidth, int screenHeig
     y += 22;
     DrawTextPro(fonts, "UP/DOWN", col1X, y, 14, WHITE, true);
     DrawTextPro(fonts, "Speed Up/Down", col1X + 90, y, 14, LIGHTGRAY);
+    y += 22;
+    DrawTextPro(fonts, "R", col1X, y, 14, WHITE, true);
+    DrawTextPro(fonts, "Toggle Earth Rotation", col1X + 90, y, 14, LIGHTGRAY);
     y += 32;
     
     DrawTextPro(fonts, "CAMERA CONTROL", col1X, y, 16, YELLOW, true);
@@ -339,6 +406,9 @@ void drawKeyboardLegend(const FontSystem& fonts, int screenWidth, int screenHeig
     y += 22;
     DrawTextPro(fonts, "MOUSE WHEEL", col1X, y, 14, WHITE, true);
     DrawTextPro(fonts, "Zoom In/Out", col1X + 130, y, 14, LIGHTGRAY);
+    y += 22;
+    DrawTextPro(fonts, "F", col1X, y, 14, WHITE, true);
+    DrawTextPro(fonts, "Toggle Camera Follow", col1X + 130, y, 14, LIGHTGRAY);
     y += 22;
     DrawTextPro(fonts, "1/2/3/4", col1X, y, 14, WHITE, true);
     DrawTextPro(fonts, "Camera Presets", col1X + 130, y, 14, LIGHTGRAY);
@@ -353,7 +423,6 @@ void drawKeyboardLegend(const FontSystem& fonts, int screenWidth, int screenHeig
     DrawTextPro(fonts, "Toggle Orbits 1-10", col1X + 90, y, 14, LIGHTGRAY);
     y += 32;
     
-    // Column 2
     y = panelY + 60;
     DrawTextPro(fonts, "DISPLAY OPTIONS", col2X, y, 16, YELLOW, true);
     y += 28;
@@ -403,6 +472,9 @@ int main() {
     FontSystem fonts;
     fonts.load();
     
+    EarthSystem earth;
+    earth.load();
+    
     Camera3D camera = { 0 };
     setCameraPreset(camera, PRESET_DEFAULT);
     camera.fovy = 45.0f;
@@ -425,15 +497,24 @@ int main() {
                   << "(" << orbit.size() << " points)\n";
     }
     
+    // Start all satellites hidden
     for (size_t i = 0; i < satellites.size(); i++) {
-        satellites[i].visible = true;
+        satellites[i].visible = false;
     }
     
     int activeSatellite = 0;
+
+    // Camera follow mode
+    bool cameraFollowMode = false;
+    Vector3 targetCameraPosition = camera.position;
+    Vector3 targetCameraTarget = camera.target;
+    float cameraTransitionSpeed = 5.0f;
     
     std::cout << "\n=== MDV Started ===\n";
     std::cout << "Press X for keyboard shortcuts\n";
-    std::cout << "Press G to toggle grids and reference lines\n";
+    std::cout << "Press G to toggle grids\n";
+    std::cout << "Press R to toggle Earth rotation\n";
+    std::cout << "Press F to toggle camera follow mode\n";
     
     float animationSpeed = 1.0f;
     float animationAccumulator = 0.0f;
@@ -442,12 +523,46 @@ int main() {
     bool showMessage = false;
     bool showList = false;
     bool showHelp = false;
-    bool showGrids = true;  // New: Grid visibility toggle
+    bool showGrids = true;
+    bool earthRotation = true;  
     
     while (!WindowShouldClose()) {
+        float deltaTime = GetFrameTime();
+
+        // Update Earth rotation
+        if (earthRotation) {
+            earth.update(deltaTime);
+        }
+
+        // Update camera follow mode
+        if (cameraFollowMode) {
+            Vector3 satPos = toRaylib(satellites[activeSatellite].orbit[satellites[activeSatellite].currentFrame].position);
+
+            // Update target positions
+            float distance = 15.0f;
+            Vector3 offset = { distance, distance * 0.7f, distance * 0.7f };
+
+            targetCameraTarget = satPos;
+            targetCameraPosition = Vector3{
+                satPos.x + offset.x,
+                satPos.y + offset.y,
+                satPos.z + offset.z
+            };
+
+            // Smooth interpolation
+            float lerpSpeed = cameraTransitionSpeed * deltaTime;
+
+            camera.position.x += (targetCameraPosition.x - camera.position.x) * lerpSpeed;
+            camera.position.y += (targetCameraPosition.y - camera.position.y) * lerpSpeed;
+            camera.position.z += (targetCameraPosition.z - camera.position.z) * lerpSpeed;
+
+            camera.target.x += (targetCameraTarget.x - camera.target.x) * lerpSpeed;
+            camera.target.y += (targetCameraTarget.y - camera.target.y) * lerpSpeed;
+            camera.target.z += (targetCameraTarget.z - camera.target.z) * lerpSpeed;
+        }
         
-        // Camera controls
-        if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
+        // Camera controls (ONLY when follow mode is OFF)
+        if (!cameraFollowMode && IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
             Vector2 mouseDelta = GetMouseDelta();
             float rotationSpeed = 0.003f;
             
@@ -470,28 +585,30 @@ int main() {
             camera.position.z = target.z + radius * cosf(elevation) * sinf(angle);
         }
         
-        // Mouse wheel zoom
-        float wheel = GetMouseWheelMove();
-        if (wheel != 0) {
-            Vector3 direction = { camera.position.x - camera.target.x,
-                                camera.position.y - camera.target.y,
-                                camera.position.z - camera.target.z };
-            float distance = sqrtf(direction.x*direction.x + direction.y*direction.y + direction.z*direction.z);
-            
-            float zoomSpeed = distance * 0.1f;
-            distance -= wheel * zoomSpeed;
-            
-            if (distance < 10.0f) distance = 10.0f;
-            if (distance > 200.0f) distance = 200.0f;
-            
-            float currentDist = sqrtf(direction.x*direction.x + direction.y*direction.y + direction.z*direction.z);
-            direction.x = direction.x / currentDist * distance;
-            direction.y = direction.y / currentDist * distance;
-            direction.z = direction.z / currentDist * distance;
-            
-            camera.position.x = camera.target.x + direction.x;
-            camera.position.y = camera.target.y + direction.y;
-            camera.position.z = camera.target.z + direction.z;
+        // Mouse wheel zoom (ONLY when follow mode is OFF)
+        if (!cameraFollowMode) {
+            float wheel = GetMouseWheelMove();
+            if (wheel != 0) {
+                Vector3 direction = { camera.position.x - camera.target.x,
+                                    camera.position.y - camera.target.y,
+                                    camera.position.z - camera.target.z };
+                float distance = sqrtf(direction.x*direction.x + direction.y*direction.y + direction.z*direction.z);
+                
+                float zoomSpeed = distance * 0.1f;
+                distance -= wheel * zoomSpeed;
+                
+                if (distance < 10.0f) distance = 10.0f;
+                if (distance > 200.0f) distance = 200.0f;
+                
+                float currentDist = sqrtf(direction.x*direction.x + direction.y*direction.y + direction.z*direction.z);
+                direction.x = direction.x / currentDist * distance;
+                direction.y = direction.y / currentDist * distance;
+                direction.z = direction.z / currentDist * distance;
+                
+                camera.position.x = camera.target.x + direction.x;
+                camera.position.y = camera.target.y + direction.y;
+                camera.position.z = camera.target.z + direction.z;
+            }
         }
         
         // Update animation
@@ -519,7 +636,8 @@ int main() {
         if (IsKeyPressed(KEY_M)) showMessage = !showMessage;
         if (IsKeyPressed(KEY_C)) showList = !showList;
         if (IsKeyPressed(KEY_X)) showHelp = !showHelp;
-        if (IsKeyPressed(KEY_G)) showGrids = !showGrids;  // New: Toggle grids
+        if (IsKeyPressed(KEY_G)) showGrids = !showGrids;
+        if (IsKeyPressed(KEY_R)) earthRotation = !earthRotation;
         
         if (IsKeyPressed(KEY_ONE)) setCameraPreset(camera, PRESET_DEFAULT);
         if (IsKeyPressed(KEY_TWO)) setCameraPreset(camera, PRESET_TOP);
@@ -527,12 +645,13 @@ int main() {
         if (IsKeyPressed(KEY_FOUR)) setCameraPreset(camera, PRESET_FRONT);
         
         if (IsKeyPressed(KEY_H)) showElements = !showElements;
+        if (IsKeyPressed(KEY_F)) cameraFollowMode = !cameraFollowMode;
         
-        // Toggle satellite visibility
+        // Toggle satellites
         if (IsKeyPressed(KEY_Q) && satellites.size() > 0) satellites[0].visible = !satellites[0].visible;
         if (IsKeyPressed(KEY_W) && satellites.size() > 1) satellites[1].visible = !satellites[1].visible;
         if (IsKeyPressed(KEY_E) && satellites.size() > 2) satellites[2].visible = !satellites[2].visible;
-        if (IsKeyPressed(KEY_R) && satellites.size() > 3) satellites[3].visible = !satellites[3].visible;
+        // KEY_R conflicts with Earth rotation, skip satellite 3
         if (IsKeyPressed(KEY_T) && satellites.size() > 4) satellites[4].visible = !satellites[4].visible;
         if (IsKeyPressed(KEY_Y) && satellites.size() > 5) satellites[5].visible = !satellites[5].visible;
         if (IsKeyPressed(KEY_U) && satellites.size() > 6) satellites[6].visible = !satellites[6].visible;
@@ -541,9 +660,26 @@ int main() {
         if (IsKeyPressed(KEY_P) && satellites.size() > 9) satellites[9].visible = !satellites[9].visible;
         
         if (IsKeyPressed(KEY_TAB)) {
+            int startingSat = activeSatellite;
             do {
                 activeSatellite = (activeSatellite + 1) % satellites.size();
-            } while (!satellites[activeSatellite].visible && activeSatellite != 0);
+            } while (!satellites[activeSatellite].visible && activeSatellite != startingSat);
+
+            // Camera follow on TAB press
+            if (cameraFollowMode) {
+                Vector3 satPos = toRaylib(satellites[activeSatellite].orbit[satellites[activeSatellite].currentFrame].position);
+
+                // Calculate desired camera position (offset from satellite)
+                float distance = 15.0f;
+                Vector3 offset = { distance, distance * 0.7f, distance * 0.7f };
+
+                targetCameraTarget = satPos;
+                targetCameraPosition = Vector3{
+                    satPos.x + offset.x,
+                    satPos.y + offset.y,
+                    satPos.z + offset.z
+                };
+            }
         }
         
         OrbitalElements currentElements = OrbitalElements::fromStateVector(
@@ -557,21 +693,16 @@ int main() {
         
         BeginMode3D(camera);
         
-            // Draw grids and reference lines
+            // Draw grids
             if (showGrids) {
-                // Infinite equatorial grid
                 drawEquatorialGrid();
-                
-                // Reference altitude circles
                 drawReferenceCircles();
-                
-                // Orbital plane for active satellite
                 drawOrbitalPlane(satellites[activeSatellite].orbit, 
                                satellites[activeSatellite].stats.familyColor);
             }
             
-            // Draw Earth
-            DrawSphere(Vector3{0, 0, 0}, EARTH_RADIUS * SCALE, BLUE);
+            // Draw Earth (textured and rotating)
+            earth.draw();
             
             // Draw coordinate axes
             float axisLength = 10.0f;
@@ -579,7 +710,7 @@ int main() {
             DrawLine3D(Vector3{0, 0, 0}, Vector3{0, axisLength, 0}, GREEN);
             DrawLine3D(Vector3{0, 0, 0}, Vector3{0, 0, axisLength}, SKYBLUE);
             
-            // Draw satellites and orbits
+            // Draw satellites
             for (size_t s = 0; s < satellites.size(); s++) {
                 if (!satellites[s].visible) continue;
                 
@@ -639,17 +770,19 @@ int main() {
           
         int yPos = screenHeight - 28;
         const char* pauseStatus = (animationSpeed > 0.01f) ? "" : " [PAUSED]";
-        const char* gridStatus = showGrids ? " | Grids: ON" : " | Grids: OFF";
-        char statusText[256];
-        snprintf(statusText, sizeof(statusText), "Speed: %.1fx%s | Active: %s [%s]%s | FPS: %d", 
+        const char* gridStatus = showGrids ? "Grids: ON" : "Grids: OFF";
+        const char* rotStatus = earthRotation ? "Rotation: ON" : "Rotation: OFF";
+        const char* followStatus = cameraFollowMode ? "Follow: ON" : "Follow: OFF";
+        char statusText[300];
+        snprintf(statusText, sizeof(statusText), "Speed: %.1fx%s | Active: %s [%s] | %s | %s | %s | FPS: %d", 
                  animationSpeed, pauseStatus,
                  satellites[activeSatellite].preset.name.c_str(),
                  satellites[activeSatellite].stats.orbitFamily.c_str(),
-                 gridStatus,
+                 gridStatus, rotStatus, followStatus,
                  GetFPS());
         DrawTextPro(fonts, statusText, 10, yPos, 16, satellites[activeSatellite].stats.familyColor);
         
-        // Satellite list panel
+        // Satellite list
         if (showList) {
             int listX = 10;
             int listY = 50;
@@ -788,6 +921,7 @@ int main() {
         EndDrawing();
     }
     
+    earth.unload();
     fonts.unload();
     CloseWindow();
     return 0;
