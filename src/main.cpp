@@ -27,14 +27,145 @@ enum CameraPreset {
     PRESET_FRONT
 };
 
+// Font system
+struct FontSystem {
+    Font regular;
+    Font bold;
+    bool loaded;
+    
+    FontSystem() : loaded(false) {}
+    
+    void load() {
+        std::cout << "Loading fonts...\n";
+        
+        // Try Roboto first, then fall back to Windows Segoe UI (excellent screen font)
+        regular = LoadFontEx("../assets/fonts/Roboto-Regular.ttf", 72, 0, 250);
+        bold = LoadFontEx("../assets/fonts/Roboto-Bold.ttf", 72, 0, 250);
+        
+        // Fallback to Windows Segoe UI if Roboto not found
+        if (regular.texture.id == 0) {
+            std::cout << "  Roboto not found, trying Segoe UI...\n";
+            regular = LoadFontEx("C:/Windows/Fonts/segoeui.ttf", 72, 0, 250);
+            if (regular.texture.id == 0) {
+                std::cout << "  Using default font\n";
+                regular = GetFontDefault();
+            } else {
+                std::cout << "  Segoe UI loaded!\n";
+            }
+        } else {
+            std::cout << "  Roboto-Regular.ttf loaded!\n";
+        }
+        
+        if (bold.texture.id == 0) {
+            std::cout << "  Roboto Bold not found, trying Segoe UI Bold...\n";
+            bold = LoadFontEx("C:/Windows/Fonts/segoeuib.ttf", 72, 0, 250);
+            if (bold.texture.id == 0) {
+                std::cout << "  Using default font\n";
+                bold = GetFontDefault();
+            } else {
+                std::cout << "  Segoe UI Bold loaded!\n";
+            }
+        } else {
+            std::cout << "  Roboto-Bold.ttf loaded!\n";
+        }
+        
+        // Bilinear filtering for smooth rendering
+        if (regular.texture.id != 1) {
+            SetTextureFilter(regular.texture, TEXTURE_FILTER_BILINEAR);
+        }
+        if (bold.texture.id != 1) {
+            SetTextureFilter(bold.texture, TEXTURE_FILTER_BILINEAR);
+        }
+        
+        loaded = true;
+    }
+    
+    void unload() {
+        if (loaded) {
+            // Only unload if not default font
+            if (regular.texture.id != 1) UnloadFont(regular);
+            if (bold.texture.id != 1) UnloadFont(bold);
+            loaded = false;
+        }
+    }
+};
+
+// Helper functions for text rendering with custom fonts
+void DrawTextPro(const FontSystem& fonts, const char* text, float x, float y, float fontSize, Color color, bool bold = false) {
+    Font font = bold ? fonts.bold : fonts.regular;
+    Vector2 position = { x, y };
+    float spacing = 0.0f;  // Auto-spacing based on font
+    DrawTextEx(font, text, position, fontSize, spacing, color);
+}
+
+void MeasureTextPro(const FontSystem& fonts, const char* text, float fontSize, float* width, float* height) {
+    Vector2 size = MeasureTextEx(fonts.regular, text, fontSize, 0.0f);
+    if (width) *width = size.x;
+    if (height) *height = size.y;
+}
+
+struct OrbitStatistics {
+    double periapsisAlt;      // km
+    double apoapsisAlt;       // km
+    double periapsisVel;      // km/s
+    double apoapsisVel;       // km/s
+    double meanAltitude;      // km
+    std::string orbitFamily;  // LEO, MEO, HEO, GEO
+    Color familyColor;        // Color for orbit family
+};
+
 struct Satellite {
     std::vector<StateVector> orbit;
     size_t currentFrame;
     OrbitPreset preset;
     bool visible;
+    OrbitStatistics stats;
     
     Satellite(const OrbitPreset& p, const std::vector<StateVector>& o)
-        : orbit(o), currentFrame(0), preset(p), visible(true) {}
+        : orbit(o), currentFrame(0), preset(p), visible(true) {
+        calculateStatistics();
+    }
+    
+    void calculateStatistics() {
+        if (orbit.empty()) return;
+        
+        // Find periapsis and apoapsis
+        double minR = 1e10, maxR = 0;
+        size_t periIdx = 0, apoIdx = 0;
+        
+        for (size_t i = 0; i < orbit.size(); i++) {
+            double r = orbit[i].position.magnitude();
+            if (r < minR) {
+                minR = r;
+                periIdx = i;
+            }
+            if (r > maxR) {
+                maxR = r;
+                apoIdx = i;
+            }
+        }
+        
+        stats.periapsisAlt = minR - EARTH_RADIUS;
+        stats.apoapsisAlt = maxR - EARTH_RADIUS;
+        stats.periapsisVel = orbit[periIdx].velocity.magnitude();
+        stats.apoapsisVel = orbit[apoIdx].velocity.magnitude();
+        stats.meanAltitude = (stats.periapsisAlt + stats.apoapsisAlt) / 2.0;
+        
+        // Determine orbit family based on altitude
+        if (stats.meanAltitude < 2000.0) {
+            stats.orbitFamily = "LEO";
+            stats.familyColor = Color{100, 200, 255, 255}; // Light blue
+        } else if (stats.meanAltitude < 35000.0) {
+            stats.orbitFamily = "MEO";
+            stats.familyColor = Color{100, 255, 100, 255}; // Light green
+        } else if (stats.apoapsisAlt > 35000.0 && stats.periapsisAlt < 35000.0) {
+            stats.orbitFamily = "HEO";
+            stats.familyColor = Color{255, 150, 100, 255}; // Orange
+        } else {
+            stats.orbitFamily = "GEO";
+            stats.familyColor = Color{255, 100, 255, 255}; // Magenta
+        }
+    }
 };
 
 Vector3 toRaylib(const Vector3D& v) {
@@ -69,21 +200,107 @@ void setCameraPreset(Camera3D& camera, CameraPreset preset) {
     }
 }
 
-// Helper function to draw text with custom font
-void DrawTextCustom(const char* text, int x, int y, int fontSize, Color color) {
-    DrawText(text, x, y, fontSize, color);
+void drawKeyboardLegend(const FontSystem& fonts, int screenWidth, int screenHeight) {
+    int panelW = 650;
+    int panelH = 500;
+    int panelX = (screenWidth - panelW) / 2;
+    int panelY = (screenHeight - panelH) / 2;
+    
+    // Background
+    DrawRectangle(panelX, panelY, panelW, panelH, Fade(BLACK, 0.95f));
+    DrawRectangleLines(panelX, panelY, panelW, panelH, SKYBLUE);
+    
+    int x = panelX + 20;
+    int y = panelY + 15;
+    
+    // Title
+    DrawTextPro(fonts, "KEYBOARD SHORTCUTS", x + 160, y, 24, SKYBLUE, true);
+    y += 45;
+    
+    // Column 1
+    int col1X = x;
+    int col2X = x + 320;
+    
+    DrawTextPro(fonts, "SIMULATION CONTROL", col1X, y, 16, YELLOW, true);
+    y += 28;
+    DrawTextPro(fonts, "SPACE", col1X, y, 14, WHITE, true);
+    DrawTextPro(fonts, "Pause/Resume", col1X + 90, y, 14, LIGHTGRAY);
+    y += 22;
+    DrawTextPro(fonts, "UP/DOWN", col1X, y, 14, WHITE, true);
+    DrawTextPro(fonts, "Speed Up/Down", col1X + 90, y, 14, LIGHTGRAY);
+    y += 32;
+    
+    DrawTextPro(fonts, "CAMERA CONTROL", col1X, y, 16, YELLOW, true);
+    y += 28;
+    DrawTextPro(fonts, "RIGHT MOUSE", col1X, y, 14, WHITE, true);
+    DrawTextPro(fonts, "Rotate View", col1X + 130, y, 14, LIGHTGRAY);
+    y += 22;
+    DrawTextPro(fonts, "MOUSE WHEEL", col1X, y, 14, WHITE, true);
+    DrawTextPro(fonts, "Zoom In/Out", col1X + 130, y, 14, LIGHTGRAY);
+    y += 22;
+    DrawTextPro(fonts, "1/2/3/4", col1X, y, 14, WHITE, true);
+    DrawTextPro(fonts, "Camera Presets", col1X + 130, y, 14, LIGHTGRAY);
+    y += 32;
+    
+    DrawTextPro(fonts, "ORBIT SELECTION", col1X, y, 16, YELLOW, true);
+    y += 28;
+    DrawTextPro(fonts, "TAB", col1X, y, 14, WHITE, true);
+    DrawTextPro(fonts, "Cycle Active Orbit", col1X + 90, y, 14, LIGHTGRAY);
+    y += 22;
+    DrawTextPro(fonts, "Q-P Keys", col1X, y, 14, WHITE, true);
+    DrawTextPro(fonts, "Toggle Orbits 1-10", col1X + 90, y, 14, LIGHTGRAY);
+    y += 32;
+    
+    // Column 2
+    y = panelY + 60;
+    DrawTextPro(fonts, "DISPLAY OPTIONS", col2X, y, 16, YELLOW, true);
+    y += 28;
+    DrawTextPro(fonts, "H", col2X, y, 14, WHITE, true);
+    DrawTextPro(fonts, "Toggle Elements Panel", col2X + 50, y, 14, LIGHTGRAY);
+    y += 22;
+    DrawTextPro(fonts, "C", col2X, y, 14, WHITE, true);
+    DrawTextPro(fonts, "Toggle Satellites List", col2X + 50, y, 14, LIGHTGRAY);
+    y += 22;
+    DrawTextPro(fonts, "M", col2X, y, 14, WHITE, true);
+    DrawTextPro(fonts, "Toggle Commands Menu", col2X + 50, y, 14, LIGHTGRAY);
+    y += 22;
+    DrawTextPro(fonts, "X", col2X, y, 14, WHITE, true);
+    DrawTextPro(fonts, "Show This Help", col2X + 50, y, 14, LIGHTGRAY);
+    y += 32;
+    
+    DrawTextPro(fonts, "ORBIT FAMILIES", col2X, y, 16, YELLOW, true);
+    y += 28;
+    DrawTextPro(fonts, "LEO", col2X, y, 14, Color{100, 200, 255, 255}, true);
+    DrawTextPro(fonts, "Low Earth (<2000 km)", col2X + 60, y, 14, LIGHTGRAY);
+    y += 22;
+    DrawTextPro(fonts, "MEO", col2X, y, 14, Color{100, 255, 100, 255}, true);
+    DrawTextPro(fonts, "Medium Earth (2-35k km)", col2X + 60, y, 14, LIGHTGRAY);
+    y += 22;
+    DrawTextPro(fonts, "HEO", col2X, y, 14, Color{255, 150, 100, 255}, true);
+    DrawTextPro(fonts, "High Elliptical", col2X + 60, y, 14, LIGHTGRAY);
+    y += 22;
+    DrawTextPro(fonts, "GEO", col2X, y, 14, Color{255, 100, 255, 255}, true);
+    DrawTextPro(fonts, "Geostationary (~36k km)", col2X + 60, y, 14, LIGHTGRAY);
+    
+    // Footer
+    y = panelY + panelH - 40;
+    DrawTextPro(fonts, "Press X again to close", panelX + 230, y, 16, GRAY);
 }
 
 int main() {
+    // Enable MSAA and high DPI BEFORE InitWindow
+    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI);
+    
     // Initialize window
     const int screenWidth = 1600;
     const int screenHeight = 900;
     
-    InitWindow(screenWidth, screenHeight, "MDV");
+    InitWindow(screenWidth, screenHeight, "MDV - Mission Design Visualizer");
     SetTargetFPS(60);
     
-    // Enable MSAA antialiasing for smoother rendering
-    SetConfigFlags(FLAG_MSAA_4X_HINT);
+    // Load fonts
+    FontSystem fonts;
+    fonts.load();
     
     // Setup 3D camera
     Camera3D camera = { 0 };
@@ -103,11 +320,13 @@ int main() {
         std::vector<StateVector> orbit = propagator.propagate(
             preset.initialState, 
             preset.period, 
-            preset.period / 100.0  // 100 points per orbit
+            preset.period / 100.0
         );
         satellites.push_back(Satellite(preset, orbit));
         
-        std::cout << "Orbit created: " << preset.name << " (" << orbit.size() << " points)\n";
+        std::cout << "Orbit created: " << preset.name 
+                  << " [" << satellites.back().stats.orbitFamily << "] "
+                  << "(" << orbit.size() << " points)\n";
     }
     
     // Start with all satellites visible
@@ -115,12 +334,10 @@ int main() {
         satellites[i].visible = true;
     }
     
-    int activeSatellite = 0;  // Currently selected satellite for detailed view
+    int activeSatellite = 0;
     
-    std::cout << "\n=== Controls ===\n";
-    std::cout << "TAB:             Cycle active satellite\n";
-    std::cout << "H:               Show/Hide elements\n";
-    std::cout << "ESC:             Exit\n";
+    std::cout << "\n=== MDV Started ===\n";
+    std::cout << "Press X for keyboard shortcuts\n";
     
     // Animation State
     float animationSpeed = 1.0f;
@@ -129,6 +346,7 @@ int main() {
     bool showElements = true;
     bool showMessage = false;
     bool showList = false;
+    bool showHelp = false;
     
     // Main loop
     while (!WindowShouldClose()) {
@@ -183,11 +401,11 @@ int main() {
             camera.position.z = camera.target.z + direction.z;
         }
         
-        // Update animation with accumulator for fractional speeds
+        // Update animation
         if (animationSpeed > 0.01f) {
             animationAccumulator += animationSpeed;
             size_t framesToAdvance = static_cast<size_t>(animationAccumulator);
-            animationAccumulator -= framesToAdvance;  // Keep the fractional part
+            animationAccumulator -= framesToAdvance;
             
             for (auto& sat : satellites) {
                 if (sat.visible) {
@@ -211,6 +429,9 @@ int main() {
         // Show panel list
         if(IsKeyPressed(KEY_C)) showList = !showList;
         
+        // Show help
+        if (IsKeyPressed(KEY_X)) showHelp = !showHelp;
+        
         // Camera presets
         if (IsKeyPressed(KEY_ONE)) setCameraPreset(camera, PRESET_DEFAULT);
         if (IsKeyPressed(KEY_TWO)) setCameraPreset(camera, PRESET_TOP);
@@ -219,9 +440,8 @@ int main() {
         
         // Toggle elements display
         if (IsKeyPressed(KEY_H)) showElements = !showElements;
-
         
-        // Toggle satellite visibility (Q/W/E/R/T/Y/U/I/O/P for satellites 0-9)
+        // Toggle satellite visibility
         if (IsKeyPressed(KEY_Q) && satellites.size() > 0) satellites[0].visible = !satellites[0].visible;
         if (IsKeyPressed(KEY_W) && satellites.size() > 1) satellites[1].visible = !satellites[1].visible;
         if (IsKeyPressed(KEY_E) && satellites.size() > 2) satellites[2].visible = !satellites[2].visible;
@@ -240,7 +460,7 @@ int main() {
             } while (!satellites[activeSatellite].visible && activeSatellite != 0);
         }
         
-        // Get current orbital elements for active satellite
+        // Get current orbital elements
         OrbitalElements currentElements = OrbitalElements::fromStateVector(
             satellites[activeSatellite].orbit[satellites[activeSatellite].currentFrame], 
             MU_EARTH
@@ -268,11 +488,11 @@ int main() {
                 
                 auto& sat = satellites[s];
                 Color orbitColor = sat.preset.color;
-                Color dimmedColor = Fade(orbitColor, 0.3f);
                 bool isActive = (s == activeSatellite);
                 
-                // Draw orbit trajectory with variable opacity
-                Color lineColor = isActive ? orbitColor : Fade(orbitColor, 0.5f);
+                // Use family color for orbit line
+                Color lineColor = isActive ? sat.stats.familyColor : Fade(sat.stats.familyColor, 0.4f);
+                
                 for (size_t i = 1; i < sat.orbit.size(); i++) {
                     Vector3 p1 = toRaylib(sat.orbit[i-1].position);
                     Vector3 p2 = toRaylib(sat.orbit[i].position);
@@ -291,19 +511,16 @@ int main() {
                     DrawLine3D(scPos, velEnd, GREEN);
                 }
                 
-                // Draw periapsis and apoapsis markers for elliptical orbits (active only)
+                // Draw periapsis and apoapsis markers for elliptical orbits
                 if (isActive) {
                     OrbitalElements elements = OrbitalElements::fromStateVector(sat.orbit[0], MU_EARTH);
                     if (elements.eccentricity > 0.01) {
-                        // Periapsis marker (closest point) - Orange sphere
                         size_t periIdx = 0;
                         DrawSphere(toRaylib(sat.orbit[periIdx].position), 0.3f, ORANGE);
                         
-                        // Apoapsis marker (farthest point) - Purple sphere
                         size_t apoIdx = sat.orbit.size() / 2;
                         DrawSphere(toRaylib(sat.orbit[apoIdx].position), 0.3f, PURPLE);
                         
-                        // Draw apse line
                         DrawLine3D(
                             toRaylib(sat.orbit[periIdx].position),
                             toRaylib(sat.orbit[apoIdx].position),
@@ -312,10 +529,10 @@ int main() {
                     }
                 }
                 
-                // Draw small trail behind satellite (last 10 positions)
+                // Draw trail
                 if (sat.currentFrame > 25) {
                     for (size_t i = sat.currentFrame - 25; i < sat.currentFrame; i++) {
-                        float alpha = (float)(i - (sat.currentFrame - 10)) / 10.0f;
+                        float alpha = (float)(i - (sat.currentFrame - 25)) / 25.0f;
                         Vector3 trailPos = toRaylib(sat.orbit[i].position);
                         DrawSphere(trailPos, 0.1f, Fade(orbitColor, alpha * 0.5f));
                     }
@@ -325,150 +542,166 @@ int main() {
         EndMode3D();
         
         // Draw UI - Title
-        DrawText("M.D.V - Under Development", 650, 10, 24, RED);
+        DrawTextPro(fonts, "MISSION DESIGN VISUALIZER", 10, 10, 26, SKYBLUE, true);
+        DrawTextPro(fonts, "Press X for help", screenWidth - 150, 10, 14, GRAY);
           
         // Status bar
-        int yPos = 45;
-        yPos += 825;
-        DrawText(TextFormat("Speed: %.1fx | Active: %s | FPS: %d", 
-                 animationSpeed, 
+        int yPos = screenHeight - 28;
+        const char* pauseStatus = (animationSpeed > 0.01f) ? "" : " [PAUSED]";
+        char statusText[256];
+        snprintf(statusText, sizeof(statusText), "Speed: %.1fx%s | Active: %s [%s] | FPS: %d", 
+                 animationSpeed, pauseStatus,
                  satellites[activeSatellite].preset.name.c_str(),
-                 GetFPS()), 
-                 10, yPos, 16, satellites[activeSatellite].preset.color);
+                 satellites[activeSatellite].stats.orbitFamily.c_str(),
+                 GetFPS());
+        DrawTextPro(fonts, statusText, 10, yPos, 16, satellites[activeSatellite].stats.familyColor);
         
-        
-
         // Satellite list panel
         if (showList) {
-        
-        int listX = 10;
-        int listY = 120;
-        int listW = 280;
-        int listH = 30 + satellites.size() * 25;
-        
-        DrawRectangle(listX, listY, listW, listH, Fade(BLACK, 0.8f));
-        DrawRectangleLines(listX, listY, listW, listH, SKYBLUE);
-        
-        listY += 10;
-        listX += 10;
-        
-        DrawText("SATELLITES", listX, listY, 16, SKYBLUE);
-        listY += 25;
-        
-        for (size_t i = 0; i < satellites.size(); i++) {
-            Color textColor = satellites[i].visible ? satellites[i].preset.color : GRAY;
-            const char* activeMarker = (i == activeSatellite) ? "> " : "  ";
-            DrawText(TextFormat("%s%s", activeMarker, satellites[i].preset.name.c_str()), 
-                     listX, listY, 14, textColor);
-            listY += 25;
-        }
-        }
-        
-
-        // Show commands menu (at the top)
-        if (showMessage) {
-            int yPos = 45;
-
-           // DrawText("Commands: C: Show Satellites List", 
-           // 10, yPos, 14, GRAY);
-
-            int panelX = screenWidth - 1590;
-            int panelY = 80;
-            int panelW = 320;
-            int panelH = 220;
+            int listX = 10;
+            int listY = 50;
+            int listW = 310;
+            int listH = 45 + satellites.size() * 26;
             
-            DrawRectangle(panelX, panelY, panelW, panelH, Fade(BLACK, 0.8f));
-            DrawRectangleLines(panelX, panelY, panelW, panelH, satellites[activeSatellite].preset.color);
+            DrawRectangle(listX, listY, listW, listH, Fade(BLACK, 0.92f));
+            DrawRectangleLines(listX, listY, listW, listH, SKYBLUE);
             
-            panelY += 10;
-            panelX += 10;
+            listY += 12;
+            listX += 12;
             
-            DrawText("Commands", panelX + 80, panelY, 25, RED);
-            panelY += 25;
+            DrawTextPro(fonts, "SATELLITES", listX, listY, 18, SKYBLUE, true);
+            listY += 28;
             
-            DrawText("Commands for Simulation", 
-                     panelX, panelY + 15, 11, LIGHTGRAY);
-            panelY += 30;
-            
-            DrawText(TextFormat("Type: %s", currentElements.orbitType().c_str()), 
-                     panelX, panelY, 14, WHITE);
-            panelY += 25;
-            
-
+            for (size_t i = 0; i < satellites.size(); i++) {
+                Color textColor = satellites[i].visible ? satellites[i].stats.familyColor : GRAY;
+                const char* activeMarker = (i == activeSatellite) ? "> " : "  ";
+                char satText[128];
+                snprintf(satText, sizeof(satText), "%s%s [%s]", 
+                         activeMarker, 
+                         satellites[i].preset.name.c_str(),
+                         satellites[i].stats.orbitFamily.c_str());
+                DrawTextPro(fonts, satText, listX, listY, 14, textColor);
+                listY += 26;
+            }
         }
 
-        // Orbital elements panel (right side)
+        // Orbital elements panel
         if (showElements) {
-            int panelX = screenWidth - 320;
-            int panelY = 100;
-            int panelW = 310;
-            int panelH = 420;
+            int panelX = screenWidth - 350;
+            int panelY = 50;
+            int panelW = 340;
+            int panelH = 590;
             
-            DrawRectangle(panelX, panelY, panelW, panelH, Fade(BLACK, 0.8f));
-            DrawRectangleLines(panelX, panelY, panelW, panelH, satellites[activeSatellite].preset.color);
+            auto& activeSat = satellites[activeSatellite];
             
-            panelY += 10;
-            panelX += 10;
+            DrawRectangle(panelX, panelY, panelW, panelH, Fade(BLACK, 0.92f));
+            DrawRectangleLines(panelX, panelY, panelW, panelH, activeSat.stats.familyColor);
             
-            DrawText("ORBITAL ELEMENTS", panelX, panelY, 18, satellites[activeSatellite].preset.color);
-            panelY += 25;
+            panelY += 12;
+            panelX += 12;
             
-            DrawText(satellites[activeSatellite].preset.description.c_str(), 
-                     panelX, panelY, 11, LIGHTGRAY);
-            panelY += 30;
+            // Header
+            DrawTextPro(fonts, "ORBITAL ELEMENTS", panelX, panelY, 20, activeSat.stats.familyColor, true);
+            panelY += 28;
             
-            DrawText(TextFormat("Type: %s", currentElements.orbitType().c_str()), 
-                     panelX, panelY, 14, WHITE);
-            panelY += 25;
+            DrawTextPro(fonts, activeSat.preset.description.c_str(), 
+                        panelX, panelY, 12, LIGHTGRAY);  // Increased from 10 to 12
+            panelY += 26;
             
-            DrawText("Semi-major axis (a)", panelX, panelY, 14, LIGHTGRAY);
+            // Orbit Family Badge
+            DrawRectangle(panelX, panelY, 85, 24, activeSat.stats.familyColor);
+            DrawTextPro(fonts, activeSat.stats.orbitFamily.c_str(), panelX + 10, panelY + 3, 16, BLACK, true);
+            panelY += 32;
+            
+            char buffer[256];
+            snprintf(buffer, sizeof(buffer), "Type: %s", currentElements.orbitType().c_str());
+            DrawTextPro(fonts, buffer, panelX, panelY, 14, WHITE);
+            panelY += 32;
+            
+            // Statistics Section
+            DrawTextPro(fonts, "ORBIT STATISTICS", panelX, panelY, 15, YELLOW, true);
+            panelY += 22;
+            
+            DrawTextPro(fonts, "Altitude Range", panelX, panelY, 13, LIGHTGRAY);  // Increased from 12 to 13
             panelY += 18;
-            DrawText(TextFormat("  %.2f km", currentElements.semiMajorAxis), 
-                     panelX, panelY, 14, WHITE);
-            panelY += 25;
-            
-            DrawText("Eccentricity (e)", panelX, panelY, 14, LIGHTGRAY);
+            snprintf(buffer, sizeof(buffer), "  Periapsis: %.1f km", activeSat.stats.periapsisAlt);
+            DrawTextPro(fonts, buffer, panelX, panelY, 13, ORANGE);  // Increased from 12 to 13
             panelY += 18;
-            DrawText(TextFormat("  %.6f", currentElements.eccentricity), 
-                     panelX, panelY, 14, WHITE);
-            panelY += 25;
-            
-            DrawText("Inclination (i)", panelX, panelY, 14, LIGHTGRAY);
+            snprintf(buffer, sizeof(buffer), "  Apoapsis:  %.1f km", activeSat.stats.apoapsisAlt);
+            DrawTextPro(fonts, buffer, panelX, panelY, 13, PURPLE);  // Increased from 12 to 13
             panelY += 18;
-            DrawText(TextFormat("  %.2f deg", currentElements.inclinationDeg()), 
-                     panelX, panelY, 14, WHITE);
-            panelY += 25;
+            snprintf(buffer, sizeof(buffer), "  Mean:      %.1f km", activeSat.stats.meanAltitude);
+            DrawTextPro(fonts, buffer, panelX, panelY, 13, WHITE);  // Increased from 12 to 13
+            panelY += 24;
             
-            DrawText("RAAN (Omega)", panelX, panelY, 14, LIGHTGRAY);
+            DrawTextPro(fonts, "Velocity Range", panelX, panelY, 13, LIGHTGRAY);  // Increased from 12 to 13
             panelY += 18;
-            DrawText(TextFormat("  %.2f deg", currentElements.raanDeg()), 
-                     panelX, panelY, 14, WHITE);
-            panelY += 25;
-            
-            DrawText("Arg. Periapsis (omega)", panelX, panelY, 14, LIGHTGRAY);
+            snprintf(buffer, sizeof(buffer), "  At Periapsis: %.2f km/s", activeSat.stats.periapsisVel);
+            DrawTextPro(fonts, buffer, panelX, panelY, 13, ORANGE);  // Increased from 12 to 13
             panelY += 18;
-            DrawText(TextFormat("  %.2f deg", currentElements.argumentOfPeriapsisDeg()), 
-                     panelX, panelY, 14, WHITE);
-            panelY += 25;
-            
-            DrawText("True Anomaly (nu)", panelX, panelY, 14, LIGHTGRAY);
+            snprintf(buffer, sizeof(buffer), "  At Apoapsis:  %.2f km/s", activeSat.stats.apoapsisVel);
+            DrawTextPro(fonts, buffer, panelX, panelY, 13, PURPLE);  // Increased from 12 to 13
             panelY += 18;
-            DrawText(TextFormat("  %.2f deg", currentElements.trueAnomalyDeg()), 
-                     panelX, panelY, 14, WHITE);
-            panelY += 25;
             
-            DrawText(TextFormat("Period: %.2f min", currentElements.period / 60.0), 
-                     panelX, panelY, 14, GREEN);
-            panelY += 20;
+            double currentVel = activeSat.orbit[activeSat.currentFrame].velocity.magnitude();
+            snprintf(buffer, sizeof(buffer), "  Current:      %.2f km/s", currentVel);
+            DrawTextPro(fonts, buffer, panelX, panelY, 13, GREEN);  // Increased from 12 to 13
+            panelY += 24;
             
-            DrawText(TextFormat("Altitude: %.1f km", 
-                     satellites[activeSatellite].orbit[satellites[activeSatellite].currentFrame].altitude(EARTH_RADIUS)), 
-                     panelX, panelY, 14, GREEN);
+            // Classical Elements
+            DrawTextPro(fonts, "CLASSICAL ELEMENTS", panelX, panelY, 15, YELLOW, true);
+            panelY += 22;
+            
+            DrawTextPro(fonts, "Semi-major axis (a)", panelX, panelY, 13, LIGHTGRAY);  // Increased from 12 to 13
+            panelY += 18;
+            snprintf(buffer, sizeof(buffer), "  %.2f km", currentElements.semiMajorAxis);
+            DrawTextPro(fonts, buffer, panelX, panelY, 13, WHITE);  // Increased from 12 to 13
+            panelY += 22;
+            
+            DrawTextPro(fonts, "Eccentricity (e)", panelX, panelY, 13, LIGHTGRAY);  // Increased from 12 to 13
+            panelY += 18;
+            snprintf(buffer, sizeof(buffer), "  %.6f", currentElements.eccentricity);
+            DrawTextPro(fonts, buffer, panelX, panelY, 13, WHITE);  // Increased from 12 to 13
+            panelY += 22;
+            
+            DrawTextPro(fonts, "Inclination (i)", panelX, panelY, 13, LIGHTGRAY);  // Increased from 12 to 13
+            panelY += 18;
+            snprintf(buffer, sizeof(buffer), "  %.2f deg", currentElements.inclinationDeg());
+            DrawTextPro(fonts, buffer, panelX, panelY, 13, WHITE);  // Increased from 12 to 13
+            panelY += 22;
+            
+            DrawTextPro(fonts, "RAAN (Omega)", panelX, panelY, 13, LIGHTGRAY);  // Increased from 12 to 13
+            panelY += 18;
+            snprintf(buffer, sizeof(buffer), "  %.2f deg", currentElements.raanDeg());
+            DrawTextPro(fonts, buffer, panelX, panelY, 13, WHITE);  // Increased from 12 to 13
+            panelY += 22;
+            
+            DrawTextPro(fonts, "Arg. Periapsis (omega)", panelX, panelY, 13, LIGHTGRAY);  // Increased from 12 to 13
+            panelY += 18;
+            snprintf(buffer, sizeof(buffer), "  %.2f deg", currentElements.argumentOfPeriapsisDeg());
+            DrawTextPro(fonts, buffer, panelX, panelY, 13, WHITE);  // Increased from 12 to 13
+            panelY += 22;
+            
+            DrawTextPro(fonts, "True Anomaly (nu)", panelX, panelY, 13, LIGHTGRAY);  // Increased from 12 to 13
+            panelY += 18;
+            snprintf(buffer, sizeof(buffer), "  %.2f deg", currentElements.trueAnomalyDeg());
+            DrawTextPro(fonts, buffer, panelX, panelY, 13, WHITE);  // Increased from 12 to 13
+            panelY += 22;
+            
+            snprintf(buffer, sizeof(buffer), "Period: %.2f min", currentElements.period / 60.0);
+            DrawTextPro(fonts, buffer, panelX, panelY, 14, GREEN);
+        }
+        
+        // Help overlay
+        if (showHelp) {
+            drawKeyboardLegend(fonts, screenWidth, screenHeight);
         }
         
         EndDrawing();
     }
     
+    // Cleanup
+    fonts.unload();
     CloseWindow();
     return 0;
 }
