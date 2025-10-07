@@ -118,12 +118,6 @@ int main() {
     int activeSatellite = 0;  // Currently selected satellite for detailed view
     
     std::cout << "\n=== Controls ===\n";
-    std::cout << "Right Mouse:     Rotate camera\n";
-    std::cout << "Mouse Wheel:     Zoom\n";
-    std::cout << "SPACE:           Pause/Play\n";
-    std::cout << "UP/DOWN:         Speed control\n";
-    std::cout << "1-4:             Camera presets\n";
-    std::cout << "Q/W/E/R/T/Y/U/I/O/P: Toggle orbits\n";
     std::cout << "TAB:             Cycle active satellite\n";
     std::cout << "H:               Show/Hide elements\n";
     std::cout << "ESC:             Exit\n";
@@ -131,7 +125,10 @@ int main() {
     // Animation State
     float animationSpeed = 1.0f;
     float animationAccumulator = 0.0f;
+
     bool showElements = true;
+    bool showMessage = false;
+    bool showList = false;
     
     // Main loop
     while (!WindowShouldClose()) {
@@ -207,6 +204,12 @@ int main() {
         if (IsKeyPressed(KEY_DOWN)) animationSpeed *= 0.5f;
         if (animationSpeed > 10.0f) animationSpeed = 10.0f;
         if (animationSpeed < 0.05f && animationSpeed > 0.0f) animationSpeed = 0.05f;
+
+        // Show commands menu
+        if (IsKeyPressed(KEY_M)) showMessage = !showMessage;
+
+        // Show panel list
+        if(IsKeyPressed(KEY_C)) showList = !showList;
         
         // Camera presets
         if (IsKeyPressed(KEY_ONE)) setCameraPreset(camera, PRESET_DEFAULT);
@@ -216,6 +219,7 @@ int main() {
         
         // Toggle elements display
         if (IsKeyPressed(KEY_H)) showElements = !showElements;
+
         
         // Toggle satellite visibility (Q/W/E/R/T/Y/U/I/O/P for satellites 0-9)
         if (IsKeyPressed(KEY_Q) && satellites.size() > 0) satellites[0].visible = !satellites[0].visible;
@@ -244,7 +248,7 @@ int main() {
         
         // Draw
         BeginDrawing();
-        ClearBackground(BLACK);
+        ClearBackground(Color{ 31, 7, 41 });
         
         BeginMode3D(camera);
         
@@ -309,8 +313,8 @@ int main() {
                 }
                 
                 // Draw small trail behind satellite (last 10 positions)
-                if (sat.currentFrame > 10) {
-                    for (size_t i = sat.currentFrame - 10; i < sat.currentFrame; i++) {
+                if (sat.currentFrame > 25) {
+                    for (size_t i = sat.currentFrame - 25; i < sat.currentFrame; i++) {
                         float alpha = (float)(i - (sat.currentFrame - 10)) / 10.0f;
                         Vector3 trailPos = toRaylib(sat.orbit[i].position);
                         DrawSphere(trailPos, 0.1f, Fade(orbitColor, alpha * 0.5f));
@@ -321,22 +325,22 @@ int main() {
         EndMode3D();
         
         // Draw UI - Title
-        DrawText("Mission Design Tool - Multiple Orbits", 10, 10, 24, WHITE);
-        
-        // Controls info
-        int yPos = 45;
-        DrawText("RMB:Rotate | Wheel:Zoom | SPACE:Pause | TAB:Switch | Q/W/E/R/T/Y:Toggle | H:Elements", 
-                 10, yPos, 14, LIGHTGRAY);
-        
+        DrawText("M.D.V - Under Development", 650, 10, 24, RED);
+          
         // Status bar
-        yPos += 25;
+        int yPos = 45;
+        yPos += 825;
         DrawText(TextFormat("Speed: %.1fx | Active: %s | FPS: %d", 
                  animationSpeed, 
                  satellites[activeSatellite].preset.name.c_str(),
                  GetFPS()), 
                  10, yPos, 16, satellites[activeSatellite].preset.color);
         
+        
+
         // Satellite list panel
+        if (showList) {
+        
         int listX = 10;
         int listY = 120;
         int listW = 280;
@@ -358,7 +362,41 @@ int main() {
                      listX, listY, 14, textColor);
             listY += 25;
         }
+        }
         
+
+        // Show commands menu (at the top)
+        if (showMessage) {
+            int yPos = 45;
+
+           // DrawText("Commands: C: Show Satellites List", 
+           // 10, yPos, 14, GRAY);
+
+            int panelX = screenWidth - 1590;
+            int panelY = 80;
+            int panelW = 320;
+            int panelH = 220;
+            
+            DrawRectangle(panelX, panelY, panelW, panelH, Fade(BLACK, 0.8f));
+            DrawRectangleLines(panelX, panelY, panelW, panelH, satellites[activeSatellite].preset.color);
+            
+            panelY += 10;
+            panelX += 10;
+            
+            DrawText("Commands", panelX + 80, panelY, 25, RED);
+            panelY += 25;
+            
+            DrawText("Commands for Simulation", 
+                     panelX, panelY + 15, 11, LIGHTGRAY);
+            panelY += 30;
+            
+            DrawText(TextFormat("Type: %s", currentElements.orbitType().c_str()), 
+                     panelX, panelY, 14, WHITE);
+            panelY += 25;
+            
+
+        }
+
         // Orbital elements panel (right side)
         if (showElements) {
             int panelX = screenWidth - 320;
