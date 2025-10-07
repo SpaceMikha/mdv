@@ -9,14 +9,14 @@ echo "=================================="
 echo ""
 
 # Check if running in MSYS2
-if [[ "$OSTYPE" != msys* && "$OSTYPE" != mingw* ]]; then
-    echo "ERROR: This script must be run in MSYS2 MinGW64 terminal!"
-    echo "Please:"
-    echo "  1. Install MSYS2 from https://www.msys2.org/"
-    echo "  2. Open 'MSYS2 MinGW64' (purple icon)"
-    echo "  3. Run this script again"
-    exit 1
-fi
+# if [[ "$OSTYPE" != msys* && "$OSTYPE" != mingw* ]]; then
+#     echo "ERROR: This script must be run in MSYS2 MinGW64 terminal!"
+#     echo "Please:"
+#     echo "  1. Install MSYS2 from https://www.msys2.org/"
+#     echo "  2. Open 'MSYS2 MinGW64' (purple icon)"
+#     echo "  3. Run this script again"
+#     exit 1
+# fi
 
 echo "Step 1/5: Updating MSYS2 package database..."
 pacman -Syu --noconfirm

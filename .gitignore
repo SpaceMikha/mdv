@@ -44,6 +44,7 @@ MissionDesignTool.exe
 *.su
 *.idb
 *.pdb
+build.sh
 
 # Visual Studio
 .vs/
