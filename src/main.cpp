@@ -106,7 +106,7 @@ struct EarthSystem {
         Mesh sphereMesh = GenMeshSphere(EARTH_RADIUS * SCALE, 64, 64);
         earthModel = LoadModelFromMesh(sphereMesh);
         
-        // Try to load Earth texture
+        // Try to load texture
         earthTexture = LoadTexture("../assets/textures/planet.png");
         if (earthTexture.id == 0) {
             earthTexture = LoadTexture("../assets/textures/planet.jpg");
@@ -421,7 +421,20 @@ void drawKeyboardLegend(const FontSystem& fonts, int screenWidth, int screenHeig
     y += 22;
     DrawTextPro(fonts, "Q-P Keys", col1X, y, 14, WHITE, true);
     DrawTextPro(fonts, "Toggle Orbits 1-10", col1X + 90, y, 14, LIGHTGRAY);
-    y += 32;
+    y += 22;
+
+    DrawTextPro(fonts, "CTRL + V", col1X, y, 14, WHITE, true);
+    DrawTextPro(fonts, "Show All Orbits", col1X + 90, y, 14, LIGHTGRAY);
+    y += 22;
+
+    DrawTextPro(fonts, "CTRL + B", col1X, y, 14, WHITE, true);
+    DrawTextPro(fonts, "Hide All Orbits", col1X + 90, y, 14, LIGHTGRAY);
+    y += 22;
+
+    DrawTextPro(fonts, "CTRL + N", col1X, y, 14, WHITE, true);
+    DrawTextPro(fonts, "Show Active Orbits", col1X + 90, y, 14, LIGHTGRAY);
+    y += 22;
+    
     
     y = panelY + 60;
     DrawTextPro(fonts, "DISPLAY OPTIONS", col2X, y, 16, YELLOW, true);
@@ -636,7 +649,7 @@ int main() {
         if (IsKeyPressed(KEY_M)) showMessage = !showMessage;
         if (IsKeyPressed(KEY_C)) showList = !showList;
         if (IsKeyPressed(KEY_X)) showHelp = !showHelp;
-        if (IsKeyPressed(KEY_G)) showGrids = !showGrids;
+        if (IsKeyPressed(KEY_I)) showGrids = !showGrids;
         if (IsKeyPressed(KEY_R)) earthRotation = !earthRotation;
         
         if (IsKeyPressed(KEY_ONE)) setCameraPreset(camera, PRESET_DEFAULT);
@@ -644,21 +657,44 @@ int main() {
         if (IsKeyPressed(KEY_THREE)) setCameraPreset(camera, PRESET_SIDE);
         if (IsKeyPressed(KEY_FOUR)) setCameraPreset(camera, PRESET_FRONT);
         
-        if (IsKeyPressed(KEY_H)) showElements = !showElements;
+        if (IsKeyPressed(KEY_E)) showElements = !showElements;
         if (IsKeyPressed(KEY_F)) cameraFollowMode = !cameraFollowMode;
         
         // Toggle satellites
-        if (IsKeyPressed(KEY_Q) && satellites.size() > 0) satellites[0].visible = !satellites[0].visible;
-        if (IsKeyPressed(KEY_W) && satellites.size() > 1) satellites[1].visible = !satellites[1].visible;
-        if (IsKeyPressed(KEY_E) && satellites.size() > 2) satellites[2].visible = !satellites[2].visible;
-        // KEY_R conflicts with Earth rotation, skip satellite 3
-        if (IsKeyPressed(KEY_T) && satellites.size() > 4) satellites[4].visible = !satellites[4].visible;
-        if (IsKeyPressed(KEY_Y) && satellites.size() > 5) satellites[5].visible = !satellites[5].visible;
-        if (IsKeyPressed(KEY_U) && satellites.size() > 6) satellites[6].visible = !satellites[6].visible;
-        if (IsKeyPressed(KEY_I) && satellites.size() > 7) satellites[7].visible = !satellites[7].visible;
-        if (IsKeyPressed(KEY_O) && satellites.size() > 8) satellites[8].visible = !satellites[8].visible;
-        if (IsKeyPressed(KEY_P) && satellites.size() > 9) satellites[9].visible = !satellites[9].visible;
+        if (IsKeyPressed(KEY_A) && satellites.size() > 0) satellites[0].visible = !satellites[0].visible;
+        if (IsKeyPressed(KEY_S) && satellites.size() > 1) satellites[1].visible = !satellites[1].visible;
+        if (IsKeyPressed(KEY_D) && satellites.size() > 2) satellites[2].visible = !satellites[2].visible;
+        if (IsKeyPressed(KEY_F) && satellites.size() > 3) satellites[3].visible = !satellites[3].visible;
+        if (IsKeyPressed(KEY_G) && satellites.size() > 4) satellites[4].visible = !satellites[4].visible;
+        if (IsKeyPressed(KEY_H) && satellites.size() > 5) satellites[5].visible = !satellites[5].visible;
+        if (IsKeyPressed(KEY_J) && satellites.size() > 6) satellites[6].visible = !satellites[6].visible;
+        if (IsKeyPressed(KEY_K) && satellites.size() > 7) satellites[7].visible = !satellites[7].visible;
+        if (IsKeyPressed(KEY_L) && satellites.size() > 8) satellites[8].visible = !satellites[8].visible;
+        if (IsKeyPressed(KEY_Z) && satellites.size() > 9) satellites[9].visible = !satellites[9].visible;
         
+        // Visibility bulk controls
+        if (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)){
+            if(IsKeyPressed(KEY_V)) {
+                // Show All Satellites
+                for (auto& sat : satellites) {
+                    sat.visible = true;
+                }
+            }
+            if(IsKeyPressed(KEY_B)) {
+                //Hide all satellites
+                for (auto& sat : satellites) {
+                    sat.visible = false;
+                }
+            }
+            if (IsKeyPressed(KEY_N)) {
+                // Solo Mode - show only active satellites
+                for (size_t i = 0; i < satellites.size(); i++) {
+                    satellites[i].visible = (i == activeSatellite);
+                }
+            }
+        } 
+
+
         if (IsKeyPressed(KEY_TAB)) {
             int startingSat = activeSatellite;
             do {
