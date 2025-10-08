@@ -11,7 +11,7 @@
 **Version:** 2.0  
 **Last Revised:** October 6, 2025
 
-**Correspondence:** [mikhaelmiro300@gmail.com]
+**Correspondence:** [magengmikhaeldasilva@gmail.com]
 
 ---
 
