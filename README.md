@@ -15,9 +15,10 @@
 
 ---
 
-**Copyright Notice:** © 2025 Mikhael da Silva. All rights reserved.
+## License
 
-*This work is licensed under the Creative Commons Attribution 4.0 International License (CC BY 4.0). You are free to share and adapt this material for any purpose, provided appropriate credit is given.*
+This research work is licensed under the [Creative Commons Attribution-NoDerivatives 4.0 International License](https://creativecommons.org/licenses/by-nd/4.0/).
+
 
 </div>
 
