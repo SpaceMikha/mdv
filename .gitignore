@@ -45,6 +45,7 @@ MissionDesignTool.exe
 *.idb
 *.pdb
 build.sh
+backupmain.cpp
 
 # Visual Studio
 .vs/
