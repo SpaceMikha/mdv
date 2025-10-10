@@ -264,10 +264,59 @@ void setCameraPreset(Camera3D& camera, CameraPreset preset, Vector3& targetPos, 
     smoothTransition = true;  
 }
 
-// Draw infinite equatorial plane grid
+// Eclipse detection - check if satellite is in earth's shadow
+struct EclipseStatus {
+    bool inUmbra; // full shadow
+    bool inPenumbra; // partial shadow
+    double sunAngle; // angle beetween sun and satellite from earth center
+};
+
+EclipseStatus checkEclipse(const Vector3D& satPos, const Vector3D& sunDir) {
+    EclipseStatus status = {false, false, 0.0};
+    
+    // Sun direction should be normalized
+    Vector3D sunNorm = sunDir.normalized();
+    
+    // Satellite position vector from Earth center
+    Vector3D satNorm = satPos.normalized();
+    double satDistance = satPos.magnitude();
+    
+    // Angle between sun and satellite (from Earth center)
+    double cosAngle = satNorm.dot(sunNorm);
+    status.sunAngle = acos(cosAngle) * 180.0 / M_PI;
+    
+    // If satellite is on sun side, no eclipse
+    if (cosAngle > 0) {
+        return status;
+    }
+    
+    // Calculate angular radius of Earth from satellite
+    double earthAngularRadius = asin(EARTH_RADIUS / satDistance);
+    
+    // Sun angular radius (about 0.267 degrees)
+    const double sunAngularRadius = 0.267 * M_PI / 180.0;
+    
+    // Angle from sun direction to satellite
+    double angleFromSun = acos(-cosAngle);  // Negative because satellite is behind Earth
+    
+    // Check umbra (full shadow)
+    if (angleFromSun < (earthAngularRadius - sunAngularRadius)) {
+        status.inUmbra = true;
+        status.inPenumbra = true;
+    }
+    // Check penumbra (partial shadow)
+    else if (angleFromSun < (earthAngularRadius + sunAngularRadius)) {
+        status.inPenumbra = true;
+    }
+    
+    return status;
+}
+
+
+// Draw grids
 void drawEquatorialGrid() {
     float spacing = 5.0f;
-    int numLines = 20;
+    int numLines = 35; // Number of grids
     
     for (int i = -numLines; i <= numLines; i++) {
         float z = i * spacing;
@@ -508,6 +557,10 @@ int main() {
     Vector3 targetCameraPosition = camera.position;
     Vector3 targetCameraTarget = camera.target;
     float cameraTransitionSpeed = 5.0f;
+
+    // sun direction (simplified for now)
+    // points from earth toward the sun (I will use a fixed direction)
+    Vector3D sunDirection(1.0, 0.0, 0.0); // sun along +X axis
     
     std::cout << "\n=== MDV Started ===\n";
     std::cout << "Press X for keyboard shortcuts\n";
@@ -524,6 +577,7 @@ int main() {
     bool showHelp = false;
     bool showGrids = true;
     bool earthRotation = true;  
+    bool showEclipse = true;
     
     while (!WindowShouldClose()) {
         float deltaTime = GetFrameTime();
@@ -675,6 +729,7 @@ int main() {
         if (IsKeyPressed(KEY_X)) showHelp = !showHelp;
         if (IsKeyPressed(KEY_G)) showGrids = !showGrids;
         if (IsKeyPressed(KEY_R)) earthRotation = !earthRotation;
+        if (IsKeyPressed(KEY_V)) showEclipse = !showEclipse;
 
         bool smoothTransition = false;
         if (IsKeyPressed(KEY_ONE)) {
@@ -776,7 +831,7 @@ int main() {
         
         // Draw
         BeginDrawing();
-        ClearBackground(Color{ 18, 3, 10 });
+        ClearBackground(Color{ 10, 3, 15 });
         
         BeginMode3D(camera);
         
@@ -815,8 +870,36 @@ int main() {
                 
                 Vector3 scPos = toRaylib(sat.orbit[sat.currentFrame].position);
                 float satSize = isActive ? 0.4f : 0.25f;
-                DrawSphere(scPos, satSize, orbitColor);
                 
+
+                //check eclipse status
+                Color satColor = orbitColor;
+                if (showEclipse)
+                {
+                    EclipseStatus eclipse = checkEclipse(sat.orbit[sat.currentFrame].position, sunDirection);
+
+                    if (eclipse.inUmbra)
+                    {
+                        // Full shadow - darken significantly
+                        satColor = Color{
+                            (unsigned char)(orbitColor.r * 0.2),
+                            (unsigned char)(orbitColor.g * 0.2),
+                            (unsigned char)(orbitColor.b * 0.2),
+                            orbitColor.a};
+                    }
+                    else if (eclipse.inPenumbra)
+                    {
+                        // Partial shadow - darken moderately
+                        satColor = Color{
+                            (unsigned char)(orbitColor.r * 0.5),
+                            (unsigned char)(orbitColor.g * 0.5),
+                            (unsigned char)(orbitColor.b * 0.5),
+                            orbitColor.a};
+                    }
+                }
+
+                DrawSphere(scPos, satSize, orbitColor);
+
                 if (isActive) {
                     Vector3D velScaled = sat.orbit[sat.currentFrame].velocity.normalized() * 2000.0;
                     Vector3 velEnd = toRaylib(sat.orbit[sat.currentFrame].position + velScaled);
@@ -903,7 +986,7 @@ int main() {
             int panelX = screenWidth - 350;
             int panelY = 50;
             int panelW = 340;
-            int panelH = 590;
+            int panelH = 650;
             
             auto& activeSat = satellites[activeSatellite];
             
@@ -927,8 +1010,38 @@ int main() {
             char buffer[256];
             snprintf(buffer, sizeof(buffer), "Type: %s", currentElements.orbitType().c_str());
             DrawTextPro(fonts, buffer, panelX, panelY, 14, WHITE);
-            panelY += 32;
-            
+            panelY += 22;
+
+            // Eclipse status
+            if (showEclipse)
+            {
+                EclipseStatus eclipse = checkEclipse(
+                    activeSat.orbit[activeSat.currentFrame].position,
+                    sunDirection);
+
+                const char *eclipseText = "Sunlit";
+                Color eclipseColor = YELLOW;
+
+                if (eclipse.inUmbra)
+                {
+                    eclipseText = "UMBRA (Full Shadow)";
+                    eclipseColor = RED;
+                }
+                else if (eclipse.inPenumbra)
+                {
+                    eclipseText = "PENUMBRA (Partial)";
+                    eclipseColor = ORANGE;
+                }
+
+                DrawTextPro(fonts, "Eclipse Status:", panelX, panelY, 14, LIGHTGRAY);
+                panelY += 18;
+                snprintf(buffer, sizeof(buffer), "  %s", eclipseText);
+                DrawTextPro(fonts, buffer, panelX, panelY, 14, eclipseColor);
+                panelY += 22;
+            }
+
+            panelY += 10;
+
             DrawTextPro(fonts, "ORBIT STATISTICS", panelX, panelY, 15, YELLOW, true);
             panelY += 22;
             
