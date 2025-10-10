@@ -101,12 +101,9 @@ struct EarthSystem {
     void load() {
         std::cout << "Loading Earth...\n";
         
-        // Create a sphere mesh for Earth with proper aspect ratio
-        // Use more rings than slices to prevent squashing
         Mesh sphereMesh = GenMeshSphere(EARTH_RADIUS * SCALE, 64, 64);
         earthModel = LoadModelFromMesh(sphereMesh);
         
-        // Try to load texture
         earthTexture = LoadTexture("../assets/textures/planet.png");
         if (earthTexture.id == 0) {
             earthTexture = LoadTexture("../assets/textures/planet.jpg");
@@ -115,7 +112,6 @@ struct EarthSystem {
         if (earthTexture.id != 0) {
             std::cout << "  Earth texture loaded!\n";
             
-            // Set texture wrapping to repeat
             SetTextureWrap(earthTexture, TEXTURE_WRAP_REPEAT);
             SetTextureFilter(earthTexture, TEXTURE_FILTER_BILINEAR);
             
@@ -128,34 +124,23 @@ struct EarthSystem {
     }
     
     void update(float deltaTime) {
-        // Rotate Earth slowly (one full rotation every 60 seconds)
-        rotationAngle += deltaTime * 6.0f;  // 6 degrees per second = 360 degrees in 60 seconds
+        rotationAngle += deltaTime * 6.0f;
         if (rotationAngle >= 360.0f) rotationAngle -= 360.0f;
     }
     
     void draw() {
         if (textureLoaded) {
-            // Draw with proper orientation corrections
             rlPushMatrix();
-                // First: Flip the texture right-side up (rotate 180° around X)
                 rlRotatef(180.0f, 1, 0, 0);
-                
-                // Second: Rotate 180° to put Americas on the right side
                 rlRotatef(180.0f, 0, 1, 0);
-                
-                // Third: Apply Earth's 23.5° axial tilt
                 rlRotatef(-23.5f, 1, 0, 0);
-                
-                // Fourth: Apply day/night rotation
                 rlRotatef(rotationAngle, 0, 1, 0);
-                
                 DrawModel(earthModel, Vector3{0, 0, 0}, 1.0f, WHITE);
             rlPopMatrix();
         } else {
-            // Fallback: Draw plain blue sphere with tilt
             rlPushMatrix();
-                rlRotatef(23.5f, 1, 0, 0);  // Apply 23.5° tilt
-                rlRotatef(rotationAngle, 0, 1, 0);  // Rotate around tilted Y axis
+                rlRotatef(23.5f, 1, 0, 0);
+                rlRotatef(rotationAngle, 0, 1, 0);
                 DrawSphere(Vector3{0, 0, 0}, EARTH_RADIUS * SCALE, BLUE);
             rlPopMatrix();
         }
@@ -253,28 +238,30 @@ Vector3 toRaylib(const Vector3D& v) {
     };
 }
 
-void setCameraPreset(Camera3D& camera, CameraPreset preset) {
-    camera.target = Vector3{ 0.0f, 0.0f, 0.0f };
+void setCameraPreset(Camera3D& camera, CameraPreset preset, Vector3& targetPos, Vector3& targetTgt, bool& smoothTransition) {
+    targetTgt = Vector3{ 0.0f, 0.0f, 0.0f };
     
     switch (preset) {
         case PRESET_TOP:
-            camera.position = Vector3{ 0.0f, 35.0f, 0.01f };
+            targetPos = Vector3{ 0.0f, 35.0f, 0.01f };
             camera.up = Vector3{ 0.0f, 0.0f, -1.0f };
             break;
         case PRESET_SIDE:
-            camera.position = Vector3{ 35.0f, 0.0f, 0.0f };
+            targetPos = Vector3{ 35.0f, 0.0f, 0.0f };
             camera.up = Vector3{ 0.0f, 1.0f, 0.0f };
             break;
         case PRESET_FRONT:
-            camera.position = Vector3{ 0.0f, 0.0f, 35.0f };
+            targetPos = Vector3{ 0.0f, 0.0f, 35.0f };
             camera.up = Vector3{ 0.0f, 1.0f, 0.0f };
             break;
         case PRESET_DEFAULT:
         default:
-            camera.position = Vector3{ 20.0f, 20.0f, 20.0f };
+            targetPos = Vector3{ 20.0f, 20.0f, 20.0f };
             camera.up = Vector3{ 0.0f, 1.0f, 0.0f };
             break;
     }
+    
+    smoothTransition = true;  
 }
 
 // Draw infinite equatorial plane grid
@@ -371,7 +358,7 @@ void drawOrbitalPlane(const std::vector<StateVector>& orbit, Color color) {
 
 void drawKeyboardLegend(const FontSystem& fonts, int screenWidth, int screenHeight) {
     int panelW = 650;
-    int panelH = 600;
+    int panelH = 680;
     int panelX = (screenWidth - panelW) / 2;
     int panelY = (screenHeight - panelH) / 2;
     
@@ -422,24 +409,20 @@ void drawKeyboardLegend(const FontSystem& fonts, int screenWidth, int screenHeig
     DrawTextPro(fonts, "Q-P Keys", col1X, y, 14, WHITE, true);
     DrawTextPro(fonts, "Toggle Orbits 1-10", col1X + 90, y, 14, LIGHTGRAY);
     y += 22;
-
-    DrawTextPro(fonts, "CTRL + V", col1X, y, 14, WHITE, true);
+    DrawTextPro(fonts, "CTRL+V", col1X, y, 14, WHITE, true);
     DrawTextPro(fonts, "Show All Orbits", col1X + 90, y, 14, LIGHTGRAY);
     y += 22;
-
-    DrawTextPro(fonts, "CTRL + B", col1X, y, 14, WHITE, true);
+    DrawTextPro(fonts, "CTRL+B", col1X, y, 14, WHITE, true);
     DrawTextPro(fonts, "Hide All Orbits", col1X + 90, y, 14, LIGHTGRAY);
     y += 22;
-
-    DrawTextPro(fonts, "CTRL + N", col1X, y, 14, WHITE, true);
-    DrawTextPro(fonts, "Show Active Orbits", col1X + 90, y, 14, LIGHTGRAY);
-    y += 22;
-    
+    DrawTextPro(fonts, "CTRL+N", col1X, y, 14, WHITE, true);
+    DrawTextPro(fonts, "Solo Active Orbit", col1X + 90, y, 14, LIGHTGRAY);
+    y += 32;
     
     y = panelY + 60;
     DrawTextPro(fonts, "DISPLAY OPTIONS", col2X, y, 16, YELLOW, true);
     y += 28;
-    DrawTextPro(fonts, "H", col2X, y, 14, WHITE, true);
+    DrawTextPro(fonts, "E", col2X, y, 14, WHITE, true);
     DrawTextPro(fonts, "Toggle Elements Panel", col2X + 50, y, 14, LIGHTGRAY);
     y += 22;
     DrawTextPro(fonts, "C", col2X, y, 14, WHITE, true);
@@ -487,9 +470,11 @@ int main() {
     
     EarthSystem earth;
     earth.load();
-    
+   
     Camera3D camera = { 0 };
-    setCameraPreset(camera, PRESET_DEFAULT);
+    camera.position = Vector3{ 20.0f, 20.0f, 20.0f };
+    camera.target = Vector3{ 0.0f, 0.0f, 0.0f };
+    camera.up = Vector3{ 0.0f, 1.0f, 0.0f };
     camera.fovy = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
     
@@ -519,6 +504,7 @@ int main() {
 
     // Camera follow mode
     bool cameraFollowMode = false;
+    bool isTransitioning = false;
     Vector3 targetCameraPosition = camera.position;
     Vector3 targetCameraTarget = camera.target;
     float cameraTransitionSpeed = 5.0f;
@@ -551,8 +537,17 @@ int main() {
         if (cameraFollowMode) {
             Vector3 satPos = toRaylib(satellites[activeSatellite].orbit[satellites[activeSatellite].currentFrame].position);
 
-            // Update target positions
-            float distance = 15.0f;
+            // Dynamic distance based on orbit altitude
+            double meanAlt = satellites[activeSatellite].stats.meanAltitude;
+            float distance;
+            if(meanAlt < 2000.0) {
+                distance = 12.0f;
+            } else if(meanAlt < 10000.0) {
+                distance = 18.0f;
+            } else {
+                distance = 25.0f;
+            }
+            
             Vector3 offset = { distance, distance * 0.7f, distance * 0.7f };
 
             targetCameraTarget = satPos;
@@ -561,10 +556,9 @@ int main() {
                 satPos.y + offset.y,
                 satPos.z + offset.z
             };
-
-            // Smooth interpolation
+            
+            // Apply smooth following
             float lerpSpeed = cameraTransitionSpeed * deltaTime;
-
             camera.position.x += (targetCameraPosition.x - camera.position.x) * lerpSpeed;
             camera.position.y += (targetCameraPosition.y - camera.position.y) * lerpSpeed;
             camera.position.z += (targetCameraPosition.z - camera.position.z) * lerpSpeed;
@@ -573,9 +567,32 @@ int main() {
             camera.target.y += (targetCameraTarget.y - camera.target.y) * lerpSpeed;
             camera.target.z += (targetCameraTarget.z - camera.target.z) * lerpSpeed;
         }
-        
-        // Camera controls (ONLY when follow mode is OFF)
-        if (!cameraFollowMode && IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
+        // Smooth preset transitions (only when isTransitioning is true)
+        else if (isTransitioning) {
+            float lerpSpeed = cameraTransitionSpeed * deltaTime;
+            
+            camera.position.x += (targetCameraPosition.x - camera.position.x) * lerpSpeed;
+            camera.position.y += (targetCameraPosition.y - camera.position.y) * lerpSpeed;
+            camera.position.z += (targetCameraPosition.z - camera.position.z) * lerpSpeed;
+            
+            camera.target.x += (targetCameraTarget.x - camera.target.x) * lerpSpeed;
+            camera.target.y += (targetCameraTarget.y - camera.target.y) * lerpSpeed;
+            camera.target.z += (targetCameraTarget.z - camera.target.z) * lerpSpeed;
+            
+            // Check if transition is complete
+            float posDistance = sqrtf(
+                (targetCameraPosition.x - camera.position.x) * (targetCameraPosition.x - camera.position.x) +
+                (targetCameraPosition.y - camera.position.y) * (targetCameraPosition.y - camera.position.y) +
+                (targetCameraPosition.z - camera.position.z) * (targetCameraPosition.z - camera.position.z)
+            );
+            
+            if (posDistance < 0.1f) {
+                isTransitioning = false;
+            }
+        }
+
+        // Camera controls (ONLY when follow mode is OFF and NOT transitioning)
+        if (!cameraFollowMode && !isTransitioning && IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
             Vector2 mouseDelta = GetMouseDelta();
             float rotationSpeed = 0.003f;
             
@@ -596,10 +613,14 @@ int main() {
             camera.position.x = target.x + radius * cosf(elevation) * cosf(angle);
             camera.position.y = target.y + radius * sinf(elevation);
             camera.position.z = target.z + radius * cosf(elevation) * sinf(angle);
+            
+            // Update targets to current position when manually moving
+            targetCameraPosition = camera.position;
+            targetCameraTarget = camera.target;
         }
-        
-        // Mouse wheel zoom (ONLY when follow mode is OFF)
-        if (!cameraFollowMode) {
+
+        // Mouse wheel zoom (ONLY when follow mode is OFF and NOT transitioning)
+        if (!cameraFollowMode && !isTransitioning) {
             float wheel = GetMouseWheelMove();
             if (wheel != 0) {
                 Vector3 direction = { camera.position.x - camera.target.x,
@@ -621,6 +642,9 @@ int main() {
                 camera.position.x = camera.target.x + direction.x;
                 camera.position.y = camera.target.y + direction.y;
                 camera.position.z = camera.target.z + direction.z;
+                
+                // Update target position when manually zooming
+                targetCameraPosition = camera.position;
             }
         }
         
@@ -649,51 +673,70 @@ int main() {
         if (IsKeyPressed(KEY_M)) showMessage = !showMessage;
         if (IsKeyPressed(KEY_C)) showList = !showList;
         if (IsKeyPressed(KEY_X)) showHelp = !showHelp;
-        if (IsKeyPressed(KEY_I)) showGrids = !showGrids;
+        if (IsKeyPressed(KEY_G)) showGrids = !showGrids;
         if (IsKeyPressed(KEY_R)) earthRotation = !earthRotation;
-        
-        if (IsKeyPressed(KEY_ONE)) setCameraPreset(camera, PRESET_DEFAULT);
-        if (IsKeyPressed(KEY_TWO)) setCameraPreset(camera, PRESET_TOP);
-        if (IsKeyPressed(KEY_THREE)) setCameraPreset(camera, PRESET_SIDE);
-        if (IsKeyPressed(KEY_FOUR)) setCameraPreset(camera, PRESET_FRONT);
+
+        bool smoothTransition = false;
+        if (IsKeyPressed(KEY_ONE)) {
+            setCameraPreset(camera, PRESET_DEFAULT, targetCameraPosition, targetCameraTarget, smoothTransition);
+            isTransitioning = true;
+        }
+        if (IsKeyPressed(KEY_TWO)) {
+            setCameraPreset(camera, PRESET_TOP, targetCameraPosition, targetCameraTarget, smoothTransition);
+            isTransitioning = true;
+        }
+        if (IsKeyPressed(KEY_THREE)) {
+            setCameraPreset(camera, PRESET_SIDE, targetCameraPosition, targetCameraTarget, smoothTransition);
+            isTransitioning = true;
+        }
+        if (IsKeyPressed(KEY_FOUR)) {
+            setCameraPreset(camera, PRESET_FRONT, targetCameraPosition, targetCameraTarget, smoothTransition);
+            isTransitioning = true;
+        }
         
         if (IsKeyPressed(KEY_E)) showElements = !showElements;
-        if (IsKeyPressed(KEY_F)) cameraFollowMode = !cameraFollowMode;
         
-        // Toggle satellites
-        if (IsKeyPressed(KEY_A) && satellites.size() > 0) satellites[0].visible = !satellites[0].visible;
-        if (IsKeyPressed(KEY_S) && satellites.size() > 1) satellites[1].visible = !satellites[1].visible;
-        if (IsKeyPressed(KEY_D) && satellites.size() > 2) satellites[2].visible = !satellites[2].visible;
-        if (IsKeyPressed(KEY_F) && satellites.size() > 3) satellites[3].visible = !satellites[3].visible;
-        if (IsKeyPressed(KEY_G) && satellites.size() > 4) satellites[4].visible = !satellites[4].visible;
+        if (IsKeyPressed(KEY_F)) {
+            cameraFollowMode = !cameraFollowMode;
+            
+            // Reset camera to default when disabling follow mode
+            if (!cameraFollowMode) {
+                targetCameraPosition = Vector3{ 20.0f, 20.0f, 20.0f };
+                targetCameraTarget = Vector3{ 0.0f, 0.0f, 0.0f };
+                isTransitioning = true;
+            }
+        }
+        
+        // Toggle satellites - using Q, W, A, S, D, H, J, K, Z keys
+        if (IsKeyPressed(KEY_Q) && satellites.size() > 0) satellites[0].visible = !satellites[0].visible;
+        if (IsKeyPressed(KEY_W) && satellites.size() > 1) satellites[1].visible = !satellites[1].visible;
+        if (IsKeyPressed(KEY_A) && satellites.size() > 2) satellites[2].visible = !satellites[2].visible;
+        if (IsKeyPressed(KEY_S) && satellites.size() > 3) satellites[3].visible = !satellites[3].visible;
+        if (IsKeyPressed(KEY_D) && satellites.size() > 4) satellites[4].visible = !satellites[4].visible;
         if (IsKeyPressed(KEY_H) && satellites.size() > 5) satellites[5].visible = !satellites[5].visible;
         if (IsKeyPressed(KEY_J) && satellites.size() > 6) satellites[6].visible = !satellites[6].visible;
         if (IsKeyPressed(KEY_K) && satellites.size() > 7) satellites[7].visible = !satellites[7].visible;
         if (IsKeyPressed(KEY_L) && satellites.size() > 8) satellites[8].visible = !satellites[8].visible;
         if (IsKeyPressed(KEY_Z) && satellites.size() > 9) satellites[9].visible = !satellites[9].visible;
-        
+
         // Visibility bulk controls
         if (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)){
             if(IsKeyPressed(KEY_V)) {
-                // Show All Satellites
                 for (auto& sat : satellites) {
                     sat.visible = true;
                 }
             }
             if(IsKeyPressed(KEY_B)) {
-                //Hide all satellites
                 for (auto& sat : satellites) {
                     sat.visible = false;
                 }
             }
             if (IsKeyPressed(KEY_N)) {
-                // Solo Mode - show only active satellites
                 for (size_t i = 0; i < satellites.size(); i++) {
                     satellites[i].visible = (i == activeSatellite);
                 }
             }
         } 
-
 
         if (IsKeyPressed(KEY_TAB)) {
             int startingSat = activeSatellite;
@@ -705,8 +748,16 @@ int main() {
             if (cameraFollowMode) {
                 Vector3 satPos = toRaylib(satellites[activeSatellite].orbit[satellites[activeSatellite].currentFrame].position);
 
-                // Calculate desired camera position (offset from satellite)
-                float distance = 15.0f;
+                double meanAlt = satellites[activeSatellite].stats.meanAltitude;
+                float distance;
+                if(meanAlt < 2000.0) {
+                    distance = 12.0f;
+                } else if(meanAlt < 10000.0) {
+                    distance = 18.0f;
+                } else {
+                    distance = 25.0f;
+                }
+                
                 Vector3 offset = { distance, distance * 0.7f, distance * 0.7f };
 
                 targetCameraTarget = satPos;
