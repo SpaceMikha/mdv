@@ -2,10 +2,46 @@
 #include "Eclipse.h"
 #include "Constants.h"
 #include <cstdio>
+#include <cmath>
 
 UIManager::UIManager(int width, int height)
     : screenWidth(width), screenHeight(height),
-      showElements(true), showList(false), showHelp(false), showEclipse(true), showSolar(true) {}
+      showLeftSidebar(true), showRightSidebar(true), showHelp(false),
+      showEclipse(true), showSolar(true),
+      leftSidebarOffset(0.0f), rightSidebarOffset(0.0f),
+      targetLeftOffset(0.0f), targetRightOffset(0.0f) {}
+
+void UIManager::update(float deltaTime) {
+    // Animate left sidebar
+    float leftTarget = showLeftSidebar ? 0.0f : -(float)UITheme::SIDEBAR_WIDTH;
+    if (fabs(leftSidebarOffset - leftTarget) > 0.5f) {
+        float speed = 1200.0f * deltaTime; // pixels per second
+        if (leftSidebarOffset < leftTarget) {
+            leftSidebarOffset += speed;
+            if (leftSidebarOffset > leftTarget) leftSidebarOffset = leftTarget;
+        } else {
+            leftSidebarOffset -= speed;
+            if (leftSidebarOffset < leftTarget) leftSidebarOffset = leftTarget;
+        }
+    } else {
+        leftSidebarOffset = leftTarget;
+    }
+    
+    // Animate right sidebar
+    float rightTarget = showRightSidebar ? 0.0f : (float)UITheme::SIDEBAR_WIDTH;
+    if (fabs(rightSidebarOffset - rightTarget) > 0.5f) {
+        float speed = 1200.0f * deltaTime;
+        if (rightSidebarOffset < rightTarget) {
+            rightSidebarOffset += speed;
+            if (rightSidebarOffset > rightTarget) rightSidebarOffset = rightTarget;
+        } else {
+            rightSidebarOffset -= speed;
+            if (rightSidebarOffset < rightTarget) rightSidebarOffset = rightTarget;
+        }
+    } else {
+        rightSidebarOffset = rightTarget;
+    }
+}
 
 void UIManager::draw(
     const FontSystem &fonts,
@@ -19,39 +55,67 @@ void UIManager::draw(
     int fps,
     const Vector3D &sunDirection)
 {
-    drawTitle(fonts);
-
-    if (activeSatIndex < satellites.size())
-    {
+    drawTitleBar(fonts);
+    
+    if (activeSatIndex < satellites.size()) {
         drawStatusBar(fonts, satellites[activeSatIndex], animationSpeed,
                       showGrids, earthRotation, cameraFollow, fps);
-
-        if (showList)
-        {
-            drawSatelliteList(fonts, satellites, activeSatIndex);
-        }
-
-        if (showElements)
-        {
-            drawOrbitalElements(fonts, satellites[activeSatIndex], currentElements, sunDirection);
+        
+        // Draw sidebars with animation offset
+        if (leftSidebarOffset > -(float)UITheme::SIDEBAR_WIDTH + 10.0f) {
+            drawLeftSidebar(fonts, satellites, activeSatIndex, sunDirection);
         }
         
-        if (showSolar)
-        {
-            drawSolarAnalysis(fonts, satellites[activeSatIndex], sunDirection);
+        if (rightSidebarOffset < (float)UITheme::SIDEBAR_WIDTH - 10.0f) {
+            drawRightSidebar(fonts, satellites[activeSatIndex], currentElements, sunDirection);
         }
     }
-
-    if (showHelp)
-    {
+    
+    if (showHelp) {
         drawKeyboardLegend(fonts);
     }
 }
 
-void UIManager::drawTitle(const FontSystem &fonts)
-{
-    fonts.drawText("MISSION DESIGN VISUALIZER", 10, 10, 26, SKYBLUE, true);
-    fonts.drawText("Press X for help", screenWidth - 150, 10, 14, GRAY);
+void UIManager::drawTitleBar(const FontSystem &fonts) {
+    // Background
+    DrawRectangle(0, 0, screenWidth, UITheme::TITLE_BAR_HEIGHT, UITheme::BG_PANEL);
+    DrawLineEx(
+        Vector2{0, (float)UITheme::TITLE_BAR_HEIGHT},
+        Vector2{(float)screenWidth, (float)UITheme::TITLE_BAR_HEIGHT},
+        2.0f,
+        UITheme::BORDER_ACCENT
+    );
+    
+    // Title
+    fonts.drawText("MISSION DESIGN VISUALIZER", 
+                   UITheme::SPACING_LG, 
+                   (UITheme::TITLE_BAR_HEIGHT - 28) / 2, 
+                   UITheme::FONT_SIZE_TITLE, 
+                   UITheme::SECONDARY, 
+                   true);
+    
+    // Version and status indicators
+    int rightX = screenWidth - UITheme::SPACING_LG;
+    
+    fonts.drawText("v0.8.2", 
+                   rightX - 60, 
+                   (UITheme::TITLE_BAR_HEIGHT - 12) / 2, 
+                   UITheme::FONT_SIZE_SMALL, 
+                   UITheme::TEXT_MUTED);
+    
+    // Status indicators (Eclipse, Solar)
+    rightX -= 100;
+    if (showEclipse) {
+        fonts.drawText("[Eclipse]", rightX - 80, 
+                       (UITheme::TITLE_BAR_HEIGHT - 14) / 2,
+                       UITheme::FONT_SIZE_BODY, UITheme::WARNING);
+        rightX -= 90;
+    }
+    if (showSolar) {
+        fonts.drawText("[Solar]", rightX - 60, 
+                       (UITheme::TITLE_BAR_HEIGHT - 14) / 2,
+                       UITheme::FONT_SIZE_BODY, UITheme::ACCENT);
+    }
 }
 
 void UIManager::drawStatusBar(
@@ -63,226 +127,186 @@ void UIManager::drawStatusBar(
     bool cameraFollow,
     int fps)
 {
-    int yPos = screenHeight - 28;
-    const char *pauseStatus = (animationSpeed > 0.01f) ? "" : " [PAUSED]";
-    const char *gridStatus = showGrids ? "Grids: ON" : "Grids: OFF";
-    const char *rotStatus = earthRotation ? "Rotation: ON" : "Rotation: OFF";
-    const char *followStatus = cameraFollow ? "Follow: ON" : "Follow: OFF";
+    int yPos = screenHeight - UITheme::STATUS_BAR_HEIGHT;
+    
+    // Background
+    DrawRectangle(0, yPos, screenWidth, UITheme::STATUS_BAR_HEIGHT, UITheme::BG_PANEL);
+    DrawLineEx(
+        Vector2{0, (float)yPos},
+        Vector2{(float)screenWidth, (float)yPos},
+        2.0f,
+        UITheme::BORDER
+    );
+    
+    int xPos = UITheme::SPACING_LG;
+    int yText = yPos + (UITheme::STATUS_BAR_HEIGHT - 16) / 2;
+    
+    // Speed indicator
+    char buffer[128];
+    const char* pauseStatus = (animationSpeed > 0.01f) ? "" : " PAUSED";
+    snprintf(buffer, sizeof(buffer), "Speed: %.1fx%s", animationSpeed, pauseStatus);
+    Color speedColor = (animationSpeed > 0.01f) ? UITheme::TEXT_PRIMARY : UITheme::WARNING;
+    fonts.drawText(buffer, xPos, yText, UITheme::FONT_SIZE_BODY, speedColor, true);
+    xPos += 150;
+    
+    // Separator
+    DrawLineEx(
+        Vector2{(float)xPos, (float)(yPos + 8)},
+        Vector2{(float)xPos, (float)(yPos + UITheme::STATUS_BAR_HEIGHT - 8)},
+        1.0f,
+        UITheme::BORDER
+    );
+    xPos += UITheme::SPACING_LG;
+    
+    // Active satellite
+    snprintf(buffer, sizeof(buffer), "%s", activeSat.getPreset().name.c_str());
+    fonts.drawText(buffer, xPos, yText, UITheme::FONT_SIZE_BODY, 
+                   activeSat.getStats().familyColor, true);
+    xPos += 80;
+    
+    // Orbit family badge
+    snprintf(buffer, sizeof(buffer), "[%s]", activeSat.getStats().orbitFamily.c_str());
+    fonts.drawText(buffer, xPos, yText, UITheme::FONT_SIZE_BODY, 
+                   activeSat.getStats().familyColor);
+    xPos += 70;
+    
+    // Separator
+    DrawLineEx(
+        Vector2{(float)xPos, (float)(yPos + 8)},
+        Vector2{(float)xPos, (float)(yPos + UITheme::STATUS_BAR_HEIGHT - 8)},
+        1.0f,
+        UITheme::BORDER
+    );
+    xPos += UITheme::SPACING_LG;
+    
+    // Toggle states
+    const char* gridStatus = showGrids ? "Grids: ON" : "Grids: OFF";
+    fonts.drawText(gridStatus, xPos, yText, UITheme::FONT_SIZE_BODY, 
+                   showGrids ? UITheme::ACCENT : UITheme::TEXT_MUTED);
+    xPos += 90;
+    
+    const char* rotStatus = earthRotation ? "Rot: ON" : "Rot: OFF";
+    fonts.drawText(rotStatus, xPos, yText, UITheme::FONT_SIZE_BODY, 
+                   earthRotation ? UITheme::ACCENT : UITheme::TEXT_MUTED);
+    xPos += 80;
+    
+    const char* followStatus = cameraFollow ? "Follow: ON" : "Follow: OFF";
+    fonts.drawText(followStatus, xPos, yText, UITheme::FONT_SIZE_BODY, 
+                   cameraFollow ? UITheme::ACCENT : UITheme::TEXT_MUTED);
+    xPos += 110;
+    
+    // Separator
+    DrawLineEx(
+        Vector2{(float)xPos, (float)(yPos + 8)},
+        Vector2{(float)xPos, (float)(yPos + UITheme::STATUS_BAR_HEIGHT - 8)},
+        1.0f,
+        UITheme::BORDER
+    );
+    xPos += UITheme::SPACING_LG;
+    
+    // FPS
+    snprintf(buffer, sizeof(buffer), "FPS: %d", fps);
+    Color fpsColor = (fps >= 55) ? UITheme::ACCENT : 
+                     (fps >= 30) ? UITheme::WARNING : UITheme::DANGER;
+    fonts.drawText(buffer, xPos, yText, UITheme::FONT_SIZE_BODY, fpsColor);
+}
 
-    char statusText[300];
-    snprintf(statusText, sizeof(statusText),
-             "Speed: %.1fx%s | Active: %s [%s] | %s | %s | %s | FPS: %d",
-             animationSpeed, pauseStatus,
-             activeSat.getPreset().name.c_str(),
-             activeSat.getStats().orbitFamily.c_str(),
-             gridStatus, rotStatus, followStatus, fps);
-
-    fonts.drawText(statusText, 10, yPos, 16, activeSat.getStats().familyColor);
+void UIManager::drawLeftSidebar(
+    const FontSystem &fonts,
+    const std::vector<Satellite> &satellites,
+    size_t activeSatIndex,
+    const Vector3D &sunDirection)
+{
+    int x = (int)leftSidebarOffset;
+    int y = getLeftSidebarY();
+    int width = getLeftSidebarWidth();
+    int height = getLeftSidebarHeight();
+    
+    // Main panel background
+    UITheme::DrawPanel(x, y, width, height, UITheme::BORDER_ACCENT);
+    
+    int contentX = x + UITheme::PANEL_PADDING;
+    int contentY = y + UITheme::PANEL_PADDING;
+    int contentWidth = width - (UITheme::PANEL_PADDING * 2);
+    int yOffset = contentY;
+    
+    // Draw satellite list
+    drawSatelliteList(fonts, satellites, activeSatIndex, contentX, contentY, contentWidth, yOffset);
+    
+    // Add spacing
+    yOffset += UITheme::SPACING_XL;
+    
+    // Draw solar analysis if enabled and there's a valid satellite
+    if (showSolar && activeSatIndex < satellites.size()) {
+        drawSolarAnalysis(fonts, satellites[activeSatIndex], sunDirection, 
+                         contentX, yOffset, contentWidth, yOffset);
+    }
 }
 
 void UIManager::drawSatelliteList(
     const FontSystem &fonts,
     const std::vector<Satellite> &satellites,
-    size_t activeSatIndex)
+    size_t activeSatIndex,
+    int x, int y, int width, int& yOffset)
 {
-    int listX = 10;
-    int listY = 50;
-    int listW = 310;
-    int listH = 45 + satellites.size() * 26;
-
-    DrawRectangle(listX, listY, listW, listH, Fade(BLACK, 0.92f));
-    DrawRectangleLines(listX, listY, listW, listH, SKYBLUE);
-
-    listY += 12;
-    listX += 12;
-
-    fonts.drawText("SATELLITES", listX, listY, 18, SKYBLUE, true);
-    listY += 28;
-
-    for (size_t i = 0; i < satellites.size(); i++)
-    {
-        Color textColor = satellites[i].isVisible() ? satellites[i].getStats().familyColor : GRAY;
-        const char *activeMarker = (i == activeSatIndex) ? "> " : "  ";
-
+    yOffset = y;
+    
+    // Section header
+    fonts.drawText("SATELLITES", x, yOffset, UITheme::FONT_SIZE_H2, UITheme::SECONDARY, true);
+    yOffset += 28;
+    
+    // Divider
+    UITheme::DrawDivider(x, yOffset, width);
+    yOffset += UITheme::SPACING_MD;
+    
+    // Satellite list
+    for (size_t i = 0; i < satellites.size(); i++) {
+        Color textColor = satellites[i].isVisible() ? 
+            satellites[i].getStats().familyColor : UITheme::TEXT_MUTED;
+        
+        const char* activeMarker = (i == activeSatIndex) ? "> " : "  ";
+        
         char satText[128];
-        snprintf(satText, sizeof(satText), "%s%s [%s]",
-                 activeMarker,
-                 satellites[i].getPreset().name.c_str(),
+        snprintf(satText, sizeof(satText), "%s%s", 
+                 activeMarker, 
+                 satellites[i].getPreset().name.c_str());
+        
+        fonts.drawText(satText, x, yOffset, UITheme::FONT_SIZE_BODY, textColor, 
+                       (i == activeSatIndex));
+        
+        // Orbit family badge
+        snprintf(satText, sizeof(satText), "[%s]", 
                  satellites[i].getStats().orbitFamily.c_str());
-
-        fonts.drawText(satText, listX, listY, 14, textColor);
-        listY += 26;
+        fonts.drawText(satText, x + 140, yOffset, UITheme::FONT_SIZE_SMALL, textColor);
+        
+        yOffset += 24;
     }
-}
-
-void UIManager::drawOrbitalElements(
-    const FontSystem &fonts,
-    const Satellite &activeSat,
-    const OrbitalElements &elements,
-    const Vector3D &sunDirection)
-{
-    int panelX = screenWidth - 350;
-    int panelY = 50;
-    int panelW = 340;
-    int panelH = 650;
-
-    DrawRectangle(panelX, panelY, panelW, panelH, Fade(BLACK, 0.92f));
-    DrawRectangleLines(panelX, panelY, panelW, panelH, activeSat.getStats().familyColor);
-
-    panelY += 12;
-    panelX += 12;
-
-    fonts.drawText("ORBITAL ELEMENTS", panelX, panelY, 20, activeSat.getStats().familyColor, true);
-    panelY += 28;
-
-    fonts.drawText(activeSat.getPreset().description.c_str(), panelX, panelY, 14, LIGHTGRAY);
-    panelY += 26;
-
-    DrawRectangle(panelX, panelY, 85, 24, activeSat.getStats().familyColor);
-    fonts.drawText(activeSat.getStats().orbitFamily.c_str(), panelX + 10, panelY + 3, 16, BLACK, true);
-    panelY += 32;
-
-    char buffer[256];
-    snprintf(buffer, sizeof(buffer), "Type: %s", elements.orbitType().c_str());
-    fonts.drawText(buffer, panelX, panelY, 14, WHITE);
-    panelY += 22;
-
-    // Eclipse status
-    if (showEclipse)
-    {
-        EclipseStatus eclipse = EclipseDetector::checkEclipse(
-            activeSat.getCurrentState().position,
-            sunDirection,
-            EARTH_RADIUS);
-
-        const char *eclipseText = "Sunlit";
-        Color eclipseColor = YELLOW;
-
-        if (eclipse.inUmbra)
-        {
-            eclipseText = "UMBRA (Full Shadow)";
-            eclipseColor = RED;
-        }
-        else if (eclipse.inPenumbra)
-        {
-            eclipseText = "PENUMBRA (Partial)";
-            eclipseColor = ORANGE;
-        }
-
-        fonts.drawText("Eclipse Status:", panelX, panelY, 14, LIGHTGRAY);
-        panelY += 18;
-        snprintf(buffer, sizeof(buffer), "  %s", eclipseText);
-        fonts.drawText(buffer, panelX, panelY, 14, eclipseColor);
-        panelY += 22;
-    }
-
-    panelY += 10;
-
-    fonts.drawText("ORBIT STATISTICS", panelX, panelY, 15, YELLOW, true);
-    panelY += 22;
-
-    fonts.drawText("Altitude Range", panelX, panelY, 15, LIGHTGRAY);
-    panelY += 18;
-    snprintf(buffer, sizeof(buffer), "  Periapsis: %.1f km", activeSat.getStats().periapsisAlt);
-    fonts.drawText(buffer, panelX, panelY, 15, ORANGE);
-    panelY += 18;
-    snprintf(buffer, sizeof(buffer), "  Apoapsis:  %.1f km", activeSat.getStats().apoapsisAlt);
-    fonts.drawText(buffer, panelX, panelY, 15, PURPLE);
-    panelY += 18;
-    snprintf(buffer, sizeof(buffer), "  Mean:      %.1f km", activeSat.getStats().meanAltitude);
-    fonts.drawText(buffer, panelX, panelY, 15, WHITE);
-    panelY += 24;
-
-    fonts.drawText("Velocity Range", panelX, panelY, 15, LIGHTGRAY);
-    panelY += 18;
-    snprintf(buffer, sizeof(buffer), "  At Periapsis: %.2f km/s", activeSat.getStats().periapsisVel);
-    fonts.drawText(buffer, panelX, panelY, 15, ORANGE);
-    panelY += 18;
-    snprintf(buffer, sizeof(buffer), "  At Apoapsis:  %.2f km/s", activeSat.getStats().apoapsisVel);
-    fonts.drawText(buffer, panelX, panelY, 15, PURPLE);
-    panelY += 18;
-
-    double currentVel = activeSat.getCurrentState().velocity.magnitude();
-    snprintf(buffer, sizeof(buffer), "  Current:      %.2f km/s", currentVel);
-    fonts.drawText(buffer, panelX, panelY, 15, GREEN);
-    panelY += 24;
-
-    fonts.drawText("CLASSICAL ELEMENTS", panelX, panelY, 15, YELLOW, true);
-    panelY += 22;
-
-    fonts.drawText("Semi-major axis (a)", panelX, panelY, 15, LIGHTGRAY);
-    panelY += 18;
-    snprintf(buffer, sizeof(buffer), "  %.2f km", elements.semiMajorAxis);
-    fonts.drawText(buffer, panelX, panelY, 15, WHITE);
-    panelY += 22;
-
-    fonts.drawText("Eccentricity (e)", panelX, panelY, 15, LIGHTGRAY);
-    panelY += 18;
-    snprintf(buffer, sizeof(buffer), "  %.6f", elements.eccentricity);
-    fonts.drawText(buffer, panelX, panelY, 15, WHITE);
-    panelY += 22;
-
-    fonts.drawText("Inclination (i)", panelX, panelY, 15, LIGHTGRAY);
-    panelY += 18;
-    snprintf(buffer, sizeof(buffer), "  %.2f deg", elements.inclinationDeg());
-    fonts.drawText(buffer, panelX, panelY, 15, WHITE);
-    panelY += 22;
-
-    fonts.drawText("RAAN (Omega)", panelX, panelY, 15, LIGHTGRAY);
-    panelY += 18;
-    snprintf(buffer, sizeof(buffer), "  %.2f deg", elements.raanDeg());
-    fonts.drawText(buffer, panelX, panelY, 15, WHITE);
-    panelY += 22;
-
-    fonts.drawText("Arg. Periapsis (omega)", panelX, panelY, 15, LIGHTGRAY);
-    panelY += 18;
-    snprintf(buffer, sizeof(buffer), "  %.2f deg", elements.argumentOfPeriapsisDeg());
-    fonts.drawText(buffer, panelX, panelY, 15, WHITE);
-    panelY += 22;
-
-    fonts.drawText("True Anomaly (nu)", panelX, panelY, 15, LIGHTGRAY);
-    panelY += 18;
-    snprintf(buffer, sizeof(buffer), "  %.2f deg", elements.trueAnomalyDeg());
-    fonts.drawText(buffer, panelX, panelY, 15, WHITE);
-    panelY += 22;
-
-    snprintf(buffer, sizeof(buffer), "Period: %.2f min", elements.period / 60.0);
-    fonts.drawText(buffer, panelX, panelY, 14, GREEN);
 }
 
 void UIManager::drawSolarAnalysis(
     const FontSystem& fonts,
     const Satellite& activeSat,
-    const Vector3D& sunDirection)
+    const Vector3D& sunDirection,
+    int x, int y, int width, int& yOffset)
 {
-    // Position panel on left side, below satellite list
-    int panelX = 10;
-    int panelY = showList ? (95 + activeSat.getPreset().name.size() * 26 + 60) : 50;
-    int panelW = 350;
-    int panelH = 320;
+    yOffset = y;
     
-    // Adjust if would go off screen
-    if (panelY + panelH > screenHeight - 50) {
-        panelY = screenHeight - panelH - 50;
-    }
+    // Section header
+    fonts.drawText("SOLAR PANEL ANALYSIS", x, yOffset, UITheme::FONT_SIZE_H2, 
+                   UITheme::WARNING, true);
+    yOffset += 28;
     
-    DrawRectangle(panelX, panelY, panelW, panelH, Fade(BLACK, 0.92f));
-    DrawRectangleLines(panelX, panelY, panelW, panelH, YELLOW);
+    // Divider
+    UITheme::DrawDivider(x, yOffset, width);
+    yOffset += UITheme::SPACING_MD;
     
-    panelY += 12;
-    panelX += 12;
-    
-    fonts.drawText("SOLAR PANEL ANALYSIS", panelX, panelY, 20, YELLOW, true);
-    panelY += 30;
-    
-    // Get eclipse status
+    // Get eclipse and solar data
     EclipseStatus eclipse = EclipseDetector::checkEclipse(
         activeSat.getCurrentState().position,
         sunDirection,
         EARTH_RADIUS
     );
     
-    // Get solar analysis
     SolarPanelAnalysis solar = SolarAnalyzer::analyze(
         activeSat.getCurrentState().position,
         activeSat.getCurrentState().velocity,
@@ -290,176 +314,379 @@ void UIManager::drawSolarAnalysis(
         eclipse
     );
     
-    // Draw power status with color coding
-    fonts.drawText("Power Status:", panelX, panelY, 16, LIGHTGRAY);
-    panelY += 20;
+    // Power status
+    fonts.drawText("Power Status", x, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_SECONDARY);
+    yOffset += 18;
     
     char buffer[256];
-    snprintf(buffer, sizeof(buffer), "  %s", solar.getPowerStatus());
-    fonts.drawText(buffer, panelX, panelY, 16, solar.getEfficiencyColor(), true);
-    panelY += 28;
+    snprintf(buffer, sizeof(buffer), "%s", solar.getPowerStatus());
+    fonts.drawText(buffer, x + UITheme::SPACING_SM, yOffset, UITheme::FONT_SIZE_BODY, 
+                   solar.getEfficiencyColor(), true);
+    yOffset += 26;
     
-    // Solar efficiency bar
-    fonts.drawText("Solar Efficiency:", panelX, panelY, 16, LIGHTGRAY);
-    panelY += 20;
+    // Solar efficiency
+    fonts.drawText("Solar Efficiency", x, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_SECONDARY);
+    yOffset += 18;
     
-    // Draw efficiency percentage
-    snprintf(buffer, sizeof(buffer), "  %.1f%%", solar.solarEfficiency * 100.0);
-    fonts.drawText(buffer, panelX, panelY, 18, solar.getEfficiencyColor(), true);
-    panelY += 5;
+    snprintf(buffer, sizeof(buffer), "%.1f%%", solar.solarEfficiency * 100.0);
+    fonts.drawText(buffer, x + UITheme::SPACING_SM, yOffset, UITheme::FONT_SIZE_H3, 
+                   solar.getEfficiencyColor(), true);
+    yOffset += 26;
     
-    // Draw efficiency bar
-    int barX = panelX + 10;
-    int barY = panelY + 20;
-    int barWidth = 300;
-    int barHeight = 20;
+    // Efficiency bar
+    int barWidth = width - UITheme::SPACING_SM;
+    int barHeight = 12;
     
-    DrawRectangle(barX, barY, barWidth, barHeight, Fade(DARKGRAY, 0.5f));
-    DrawRectangle(barX, barY, (int)(barWidth * solar.solarEfficiency), barHeight, 
+    DrawRectangle(x, yOffset, barWidth, barHeight, UITheme::BG_DARK);
+    DrawRectangle(x, yOffset, (int)(barWidth * solar.solarEfficiency), barHeight, 
                   solar.getEfficiencyColor());
-    DrawRectangleLines(barX, barY, barWidth, barHeight, WHITE);
-    
-    panelY += 50;
+    DrawRectangleLines(x, yOffset, barWidth, barHeight, UITheme::BORDER);
+    yOffset += barHeight + UITheme::SPACING_LG;
     
     // Beta angle
-    fonts.drawText("Beta Angle (Sun-Orbit):", panelX, panelY, 16, LIGHTGRAY);
-    panelY += 20;
-    snprintf(buffer, sizeof(buffer), "  %.2f°", solar.betaAngle);
+    fonts.drawText("Beta Angle", x, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_SECONDARY);
+    yOffset += 18;
     
-    Color betaColor = WHITE;
-    if (fabs(solar.betaAngle) < 30.0) betaColor = GREEN;
-    else if (fabs(solar.betaAngle) < 60.0) betaColor = YELLOW;
-    else betaColor = ORANGE;
-    
-    fonts.drawText(buffer, panelX, panelY, 16, betaColor);
-    panelY += 22;
+    snprintf(buffer, sizeof(buffer), "%.2f°", solar.betaAngle);
+    Color betaColor = (fabs(solar.betaAngle) < 30.0) ? UITheme::ACCENT : 
+                      (fabs(solar.betaAngle) < 60.0) ? UITheme::WARNING : UITheme::DANGER;
+    fonts.drawText(buffer, x + UITheme::SPACING_SM, yOffset, UITheme::FONT_SIZE_H3, betaColor);
+    yOffset += 26;
     
     // Sun elevation
-    fonts.drawText("Sun Elevation:", panelX, panelY, 16, LIGHTGRAY);
-    panelY += 20;
-    snprintf(buffer, sizeof(buffer), "  %.2f°", solar.sunElevation);
-    fonts.drawText(buffer, panelX, panelY, 16, WHITE);
-    panelY += 28;
+    fonts.drawText("Sun Elevation", x, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_SECONDARY);
+    yOffset += 18;
     
-    // Educational notes
-    fonts.drawText("DESIGN NOTES", panelX, panelY, 14, SKYBLUE, true);
-    panelY += 18;
+    snprintf(buffer, sizeof(buffer), "%.2f°", solar.sunElevation);
+    fonts.drawText(buffer, x + UITheme::SPACING_SM, yOffset, UITheme::FONT_SIZE_H3, 
+                   UITheme::TEXT_PRIMARY);
+    yOffset += 26;
     
+    // Design note
     const char* note = "";
     if (fabs(solar.betaAngle) < 30.0) {
-        note = "Optimal thermal & power conditions";
+        note = "Optimal conditions";
     } else if (fabs(solar.betaAngle) < 60.0) {
-        note = "Moderate beta - tracking required";
+        note = "Tracking required";
     } else {
-        note = "High beta - thermal challenges";
+        note = "Thermal challenges";
     }
     
-    fonts.drawText(note, panelX, panelY, 12, LIGHTGRAY);
+    fonts.drawText(note, x, yOffset, UITheme::FONT_SIZE_SMALL, UITheme::TEXT_MUTED);
+}
+
+void UIManager::drawRightSidebar(
+    const FontSystem &fonts,
+    const Satellite &activeSat,
+    const OrbitalElements &elements,
+    const Vector3D &sunDirection)
+{
+    int x = getRightSidebarX() + (int)rightSidebarOffset;
+    int y = getRightSidebarY();
+    int width = getRightSidebarWidth();
+    int height = getRightSidebarHeight();
+    
+    // Main panel background
+    UITheme::DrawPanel(x, y, width, height, activeSat.getStats().familyColor);
+    
+    int contentX = x + UITheme::PANEL_PADDING;
+    int contentY = y + UITheme::PANEL_PADDING;
+    
+    drawOrbitalElements(fonts, activeSat, elements, sunDirection, contentX, contentY, 
+                        width - (UITheme::PANEL_PADDING * 2));
+}
+
+void UIManager::drawOrbitalElements(
+    const FontSystem &fonts,
+    const Satellite &activeSat,
+    const OrbitalElements &elements,
+    const Vector3D &sunDirection,
+    int x, int y, int width)
+{
+    int yOffset = y;
+    char buffer[256];
+    
+    // Header
+    fonts.drawText("ORBITAL ELEMENTS", x, yOffset, UITheme::FONT_SIZE_H1, 
+                   activeSat.getStats().familyColor, true);
+    yOffset += 30;
+    
+    // Description
+    fonts.drawText(activeSat.getPreset().description.c_str(), x, yOffset, 
+                   UITheme::FONT_SIZE_SMALL, UITheme::TEXT_SECONDARY);
+    yOffset += 22;
+    
+    // Orbit family badge
+    int badgeWidth = 90;
+    int badgeHeight = 26;
+    DrawRectangle(x, yOffset, badgeWidth, badgeHeight, activeSat.getStats().familyColor);
+    fonts.drawText(activeSat.getStats().orbitFamily.c_str(), 
+                   x + 10, yOffset + 5, UITheme::FONT_SIZE_BODY, BLACK, true);
+    yOffset += badgeHeight + UITheme::SPACING_LG;
+    
+    // Orbit type
+    snprintf(buffer, sizeof(buffer), "Type: %s", elements.orbitType().c_str());
+    fonts.drawText(buffer, x, yOffset, UITheme::FONT_SIZE_BODY, UITheme::TEXT_PRIMARY);
+    yOffset += 24;
+    
+    // Eclipse status (if enabled)
+    if (showEclipse) {
+        EclipseStatus eclipse = EclipseDetector::checkEclipse(
+            activeSat.getCurrentState().position,
+            sunDirection,
+            EARTH_RADIUS
+        );
+        
+        const char* eclipseText = "Sunlit";
+        Color eclipseColor = UITheme::ACCENT;
+        
+        if (eclipse.inUmbra) {
+            eclipseText = "UMBRA";
+            eclipseColor = UITheme::DANGER;
+        } else if (eclipse.inPenumbra) {
+            eclipseText = "PENUMBRA";
+            eclipseColor = UITheme::WARNING;
+        }
+        
+        fonts.drawText("Eclipse:", x, yOffset, UITheme::FONT_SIZE_BODY, 
+                       UITheme::TEXT_SECONDARY);
+        snprintf(buffer, sizeof(buffer), "%s", eclipseText);
+        fonts.drawText(buffer, x + 80, yOffset, UITheme::FONT_SIZE_BODY, eclipseColor, true);
+        yOffset += 24;
+    }
+    
+    yOffset += UITheme::SPACING_SM;
+    UITheme::DrawDivider(x, yOffset, width);
+    yOffset += UITheme::SPACING_LG;
+    
+    // ORBIT STATISTICS
+    fonts.drawText("ORBIT STATISTICS", x, yOffset, UITheme::FONT_SIZE_H2, 
+                   UITheme::WARNING, true);
+    yOffset += 24;
+    
+    // Altitude Range
+    fonts.drawText("Altitude Range", x, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_SECONDARY);
+    yOffset += 18;
+    
+    snprintf(buffer, sizeof(buffer), "Periapsis: %.1f km", activeSat.getStats().periapsisAlt);
+    fonts.drawText(buffer, x + UITheme::SPACING_SM, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::WARNING);
+    yOffset += 18;
+    
+    snprintf(buffer, sizeof(buffer), "Apoapsis:  %.1f km", activeSat.getStats().apoapsisAlt);
+    fonts.drawText(buffer, x + UITheme::SPACING_SM, yOffset, UITheme::FONT_SIZE_BODY, 
+                   Color{200, 100, 255, 255}); // Purple
+    yOffset += 18;
+    
+    snprintf(buffer, sizeof(buffer), "Mean:      %.1f km", activeSat.getStats().meanAltitude);
+    fonts.drawText(buffer, x + UITheme::SPACING_SM, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_PRIMARY);
+    yOffset += 24;
+    
+    // Velocity Range
+    fonts.drawText("Velocity Range", x, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_SECONDARY);
+    yOffset += 18;
+    
+    snprintf(buffer, sizeof(buffer), "At Periapsis: %.2f km/s", activeSat.getStats().periapsisVel);
+    fonts.drawText(buffer, x + UITheme::SPACING_SM, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::WARNING);
+    yOffset += 18;
+    
+    snprintf(buffer, sizeof(buffer), "At Apoapsis:  %.2f km/s", activeSat.getStats().apoapsisVel);
+    fonts.drawText(buffer, x + UITheme::SPACING_SM, yOffset, UITheme::FONT_SIZE_BODY, 
+                   Color{200, 100, 255, 255});
+    yOffset += 18;
+    
+    double currentVel = activeSat.getCurrentState().velocity.magnitude();
+    snprintf(buffer, sizeof(buffer), "Current:      %.2f km/s", currentVel);
+    fonts.drawText(buffer, x + UITheme::SPACING_SM, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::ACCENT);
+    yOffset += 24;
+    
+    yOffset += UITheme::SPACING_SM;
+    UITheme::DrawDivider(x, yOffset, width);
+    yOffset += UITheme::SPACING_LG;
+    
+    // CLASSICAL ELEMENTS
+    fonts.drawText("CLASSICAL ELEMENTS", x, yOffset, UITheme::FONT_SIZE_H2, 
+                   UITheme::WARNING, true);
+    yOffset += 24;
+    
+    // Semi-major axis
+    fonts.drawText("Semi-major axis (a)", x, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_SECONDARY);
+    yOffset += 16;
+    snprintf(buffer, sizeof(buffer), "%.2f km", elements.semiMajorAxis);
+    fonts.drawText(buffer, x + UITheme::SPACING_SM, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_PRIMARY);
+    yOffset += 22;
+    
+    // Eccentricity
+    fonts.drawText("Eccentricity (e)", x, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_SECONDARY);
+    yOffset += 16;
+    snprintf(buffer, sizeof(buffer), "%.6f", elements.eccentricity);
+    fonts.drawText(buffer, x + UITheme::SPACING_SM, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_PRIMARY);
+    yOffset += 22;
+    
+    // Inclination
+    fonts.drawText("Inclination (i)", x, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_SECONDARY);
+    yOffset += 16;
+    snprintf(buffer, sizeof(buffer), "%.2f°", elements.inclinationDeg());
+    fonts.drawText(buffer, x + UITheme::SPACING_SM, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_PRIMARY);
+    yOffset += 22;
+    
+    // RAAN
+    fonts.drawText("RAAN (Ω)", x, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_SECONDARY);
+    yOffset += 16;
+    snprintf(buffer, sizeof(buffer), "%.2f°", elements.raanDeg());
+    fonts.drawText(buffer, x + UITheme::SPACING_SM, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_PRIMARY);
+    yOffset += 22;
+    
+    // Argument of Periapsis
+    fonts.drawText("Arg. Periapsis (ω)", x, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_SECONDARY);
+    yOffset += 16;
+    snprintf(buffer, sizeof(buffer), "%.2f°", elements.argumentOfPeriapsisDeg());
+    fonts.drawText(buffer, x + UITheme::SPACING_SM, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_PRIMARY);
+    yOffset += 22;
+    
+    // True Anomaly
+    fonts.drawText("True Anomaly (ν)", x, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_SECONDARY);
+    yOffset += 16;
+    snprintf(buffer, sizeof(buffer), "%.2f°", elements.trueAnomalyDeg());
+    fonts.drawText(buffer, x + UITheme::SPACING_SM, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_PRIMARY);
+    yOffset += 22;
+    
+    // Period
+    yOffset += UITheme::SPACING_SM;
+    snprintf(buffer, sizeof(buffer), "Period: %.2f min", elements.period / 60.0);
+    fonts.drawText(buffer, x, yOffset, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
 }
 
 void UIManager::drawKeyboardLegend(const FontSystem &fonts)
 {
-    int panelW = 650;
-    int panelH = 750; 
+    // Smaller help panel - positioned in center but more compact
+    int panelW = 580;
+    int panelH = 520;
     int panelX = (screenWidth - panelW) / 2;
     int panelY = (screenHeight - panelH) / 2;
-
-    DrawRectangle(panelX, panelY, panelW, panelH, Fade(BLACK, 0.95f));
-    DrawRectangleLines(panelX, panelY, panelW, panelH, SKYBLUE);
-
-    int x = panelX + 20;
-    int y = panelY + 15;
-
-    fonts.drawText("KEYBOARD SHORTCUTS", x + 160, y, 24, SKYBLUE, true);
-    y += 45;
-
+    
+    // Semi-transparent dark overlay
+    DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.7f));
+    
+    // Help panel
+    UITheme::DrawPanel(panelX, panelY, panelW, panelH, UITheme::SECONDARY);
+    
+    int x = panelX + UITheme::SPACING_XL;
+    int y = panelY + UITheme::SPACING_LG;
+    
+    fonts.drawText("KEYBOARD SHORTCUTS", x + 130, y, UITheme::FONT_SIZE_H1, 
+                   UITheme::SECONDARY, true);
+    y += 40;
+    
+    UITheme::DrawDivider(panelX + UITheme::SPACING_LG, y, panelW - UITheme::SPACING_XL);
+    y += UITheme::SPACING_LG;
+    
     int col1X = x;
-    int col2X = x + 320;
-
-    fonts.drawText("SIMULATION CONTROL", col1X, y, 16, YELLOW, true);
+    int col2X = x + 270;
+    
+    // Column 1
+    fonts.drawText("SIMULATION", col1X, y, UITheme::FONT_SIZE_H3, UITheme::WARNING, true);
+    y += 22;
+    fonts.drawText("SPACE", col1X, y, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
+    fonts.drawText("Pause/Resume", col1X + 80, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
+    y += 20;
+    fonts.drawText("↑ / ↓", col1X, y, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
+    fonts.drawText("Speed Up/Down", col1X + 80, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
+    y += 20;
+    fonts.drawText("R", col1X, y, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
+    fonts.drawText("Earth Rotation", col1X + 80, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
     y += 28;
-    fonts.drawText("SPACE", col1X, y, 14, WHITE, true);
-    fonts.drawText("Pause/Resume", col1X + 90, y, 14, LIGHTGRAY);
+    
+    fonts.drawText("CAMERA", col1X, y, UITheme::FONT_SIZE_H3, UITheme::WARNING, true);
     y += 22;
-    fonts.drawText("UP/DOWN", col1X, y, 14, WHITE, true);
-    fonts.drawText("Speed Up/Down", col1X + 90, y, 14, LIGHTGRAY);
-    y += 22;
-    fonts.drawText("R", col1X, y, 14, WHITE, true);
-    fonts.drawText("Toggle Earth Rotation", col1X + 90, y, 14, LIGHTGRAY);
-    y += 32;
-
-    fonts.drawText("CAMERA CONTROL", col1X, y, 16, YELLOW, true);
+    fonts.drawText("RMB", col1X, y, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
+    fonts.drawText("Rotate View", col1X + 80, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
+    y += 20;
+    fonts.drawText("WHEEL", col1X, y, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
+    fonts.drawText("Zoom In/Out", col1X + 80, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
+    y += 20;
+    fonts.drawText("F", col1X, y, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
+    fonts.drawText("Follow Mode", col1X + 80, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
+    y += 20;
+    fonts.drawText("1/2/3/4", col1X, y, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
+    fonts.drawText("Presets", col1X + 80, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
     y += 28;
-    fonts.drawText("RIGHT MOUSE", col1X, y, 14, WHITE, true);
-    fonts.drawText("Rotate View", col1X + 130, y, 14, LIGHTGRAY);
+    
+    fonts.drawText("ORBITS", col1X, y, UITheme::FONT_SIZE_H3, UITheme::WARNING, true);
     y += 22;
-    fonts.drawText("MOUSE WHEEL", col1X, y, 14, WHITE, true);
-    fonts.drawText("Zoom In/Out", col1X + 130, y, 14, LIGHTGRAY);
+    fonts.drawText("TAB", col1X, y, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
+    fonts.drawText("Cycle Active", col1X + 80, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
+    y += 20;
+    fonts.drawText("Q-Z", col1X, y, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
+    fonts.drawText("Toggle 1-10", col1X + 80, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
+    y += 20;
+    fonts.drawText("CTRL+V", col1X, y, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
+    fonts.drawText("Show All", col1X + 80, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
+    y += 20;
+    fonts.drawText("CTRL+B", col1X, y, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
+    fonts.drawText("Hide All", col1X + 80, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
+    
+    // Column 2
+    y = panelY + UITheme::SPACING_LG + 40 + UITheme::SPACING_LG;
+    
+    fonts.drawText("DISPLAY", col2X, y, UITheme::FONT_SIZE_H3, UITheme::WARNING, true);
     y += 22;
-    fonts.drawText("F", col1X, y, 14, WHITE, true);
-    fonts.drawText("Toggle Camera Follow", col1X + 130, y, 14, LIGHTGRAY);
-    y += 22;
-    fonts.drawText("1/2/3/4", col1X, y, 14, WHITE, true);
-    fonts.drawText("Camera Presets", col1X + 130, y, 14, LIGHTGRAY);
-    y += 32;
-
-    fonts.drawText("ORBIT SELECTION", col1X, y, 16, YELLOW, true);
+    fonts.drawText("C", col2X, y, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
+    fonts.drawText("Left Sidebar", col2X + 60, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
+    y += 20;
+    fonts.drawText("E", col2X, y, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
+    fonts.drawText("Right Sidebar", col2X + 60, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
+    y += 20;
+    fonts.drawText("G", col2X, y, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
+    fonts.drawText("Toggle Grids", col2X + 60, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
+    y += 20;
+    fonts.drawText("V", col2X, y, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
+    fonts.drawText("Eclipse Display", col2X + 60, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
+    y += 20;
+    fonts.drawText("Y", col2X, y, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
+    fonts.drawText("Solar Analysis", col2X + 60, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
+    y += 20;
+    fonts.drawText("X", col2X, y, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
+    fonts.drawText("This Help", col2X + 60, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
     y += 28;
-    fonts.drawText("TAB", col1X, y, 14, WHITE, true);
-    fonts.drawText("Cycle Active Orbit", col1X + 90, y, 14, LIGHTGRAY);
+    
+    fonts.drawText("ORBIT FAMILIES", col2X, y, UITheme::FONT_SIZE_H3, UITheme::WARNING, true);
     y += 22;
-    fonts.drawText("Q-P Keys", col1X, y, 14, WHITE, true);
-    fonts.drawText("Toggle Orbits 1-10", col1X + 90, y, 14, LIGHTGRAY);
-    y += 22;
-    fonts.drawText("CTRL+V", col1X, y, 14, WHITE, true);
-    fonts.drawText("Show All Orbits", col1X + 90, y, 14, LIGHTGRAY);
-    y += 22;
-    fonts.drawText("CTRL+B", col1X, y, 14, WHITE, true);
-    fonts.drawText("Hide All Orbits", col1X + 90, y, 14, LIGHTGRAY);
-    y += 22;
-    fonts.drawText("CTRL+N", col1X, y, 14, WHITE, true);
-    fonts.drawText("Solo Active Orbit", col1X + 90, y, 14, LIGHTGRAY);
-    y += 32;
-
-    y = panelY + 60;
-    fonts.drawText("DISPLAY OPTIONS", col2X, y, 16, YELLOW, true);
-    y += 28;
-    fonts.drawText("E", col2X, y, 14, WHITE, true);
-    fonts.drawText("Toggle Elements Panel", col2X + 50, y, 14, LIGHTGRAY);
-    y += 22;
-    fonts.drawText("C", col2X, y, 14, WHITE, true);
-    fonts.drawText("Toggle Satellites List", col2X + 50, y, 14, LIGHTGRAY);
-    y += 22;
-    fonts.drawText("G", col2X, y, 14, WHITE, true);
-    fonts.drawText("Toggle Grids", col2X + 50, y, 14, LIGHTGRAY);
-    y += 22;
-    fonts.drawText("V", col2X, y, 14, WHITE, true);
-    fonts.drawText("Toggle Eclipse Display", col2X + 50, y, 14, LIGHTGRAY);
-    y += 22;
-    fonts.drawText("Y", col2X, y, 14, WHITE, true);
-    fonts.drawText("Toggle Solar Analysis", col2X + 50, y, 14, LIGHTGRAY);
-    y += 22;
-    fonts.drawText("M", col2X, y, 14, WHITE, true);
-    fonts.drawText("Toggle Commands Menu", col2X + 50, y, 14, LIGHTGRAY);
-    y += 22;
-    fonts.drawText("X", col2X, y, 14, WHITE, true);
-    fonts.drawText("Show This Help", col2X + 50, y, 14, LIGHTGRAY);
-    y += 32;
-
-    fonts.drawText("ORBIT FAMILIES", col2X, y, 16, YELLOW, true);
-    y += 28;
-    fonts.drawText("LEO", col2X, y, 14, Color{100, 200, 255, 255}, true);
-    fonts.drawText("Low Earth (<2000 km)", col2X + 60, y, 14, LIGHTGRAY);
-    y += 22;
-    fonts.drawText("MEO", col2X, y, 14, Color{100, 255, 100, 255}, true);
-    fonts.drawText("Medium Earth (2-35k km)", col2X + 60, y, 14, LIGHTGRAY);
-    y += 22;
-    fonts.drawText("HEO", col2X, y, 14, Color{255, 150, 100, 255}, true);
-    fonts.drawText("High Elliptical", col2X + 60, y, 14, LIGHTGRAY);
-    y += 22;
-    fonts.drawText("GEO", col2X, y, 14, Color{255, 100, 255, 255}, true);
-    fonts.drawText("Geostationary (~36k km)", col2X + 60, y, 14, LIGHTGRAY);
-
+    fonts.drawText("LEO", col2X, y, UITheme::FONT_SIZE_BODY, UITheme::ORBIT_LEO, true);
+    fonts.drawText("< 2,000 km", col2X + 60, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
+    y += 20;
+    fonts.drawText("MEO", col2X, y, UITheme::FONT_SIZE_BODY, UITheme::ORBIT_MEO, true);
+    fonts.drawText("2k - 35k km", col2X + 60, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
+    y += 20;
+    fonts.drawText("HEO", col2X, y, UITheme::FONT_SIZE_BODY, UITheme::ORBIT_HEO, true);
+    fonts.drawText("Elliptical", col2X + 60, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
+    y += 20;
+    fonts.drawText("GEO", col2X, y, UITheme::FONT_SIZE_BODY, UITheme::ORBIT_GEO, true);
+    fonts.drawText("~36k km", col2X + 60, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
+    
+    // Close instruction
     y = panelY + panelH - 40;
-    fonts.drawText("Press X again to close", panelX + 230, y, 16, GRAY);
+    fonts.drawText("Press X to close", panelX + 220, y, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_MUTED);
 }
