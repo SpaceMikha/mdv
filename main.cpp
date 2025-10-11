@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include "raylib.h"
+#include "RenderUtils.h"
 
 // Core
 #include "Constants.h"
@@ -13,6 +14,7 @@
 // Simulation
 #include "Satellite.h"
 #include "Eclipse.h"
+#include "SolarAnalysis.h"
 
 // Rendering
 #include "EarthRenderer.h"

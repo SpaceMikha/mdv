@@ -5,6 +5,7 @@
 #include "Satellite.h"
 #include "OrbitalElements.h"
 #include "Eclipse.h"
+#include "SolarAnalysis.h"  
 #include "Vector3D.h"
 #include <vector>
 
@@ -32,12 +33,14 @@ public:
     void toggleList() { showList = !showList; }
     void toggleHelp() { showHelp = !showHelp; }
     void toggleEclipse() { showEclipse = !showEclipse; }
+    void toggleSolar() { showSolar = !showSolar; } 
     
     // Getters
     bool isShowingElements() const { return showElements; }
     bool isShowingList() const { return showList; }
     bool isShowingHelp() const { return showHelp; }
     bool isShowingEclipse() const { return showEclipse; }
+    bool isShowingSolar() const { return showSolar; }  
     
 private:
     int screenWidth;
@@ -46,6 +49,7 @@ private:
     bool showList;
     bool showHelp;
     bool showEclipse;
+    bool showSolar;  
     
     // Draw individual panels
     void drawTitle(const FontSystem& fonts);
@@ -70,6 +74,13 @@ private:
         const Vector3D& sunDirection
     );
     void drawKeyboardLegend(const FontSystem& fonts);
+    
+    
+    void drawSolarAnalysis(
+        const FontSystem& fonts,
+        const Satellite& activeSat,
+        const Vector3D& sunDirection
+    );
 };
 
 #endif // UI_MANAGER_H

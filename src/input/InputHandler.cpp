@@ -118,4 +118,5 @@ void InputHandler::handleUIToggles(UIManager& ui, bool& showGrids, bool& earthRo
     if (IsKeyPressed(KEY_G)) showGrids = !showGrids;
     if (IsKeyPressed(KEY_R)) earthRotation = !earthRotation;
     if (IsKeyPressed(KEY_V)) ui.toggleEclipse();
+    if (IsKeyPressed(KEY_Y)) ui.toggleSolar();
 }
