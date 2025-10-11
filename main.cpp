@@ -6,6 +6,8 @@
 #include "OrbitalElements.h"
 #include "Eclipse.h"
 #include "SolarAnalysis.h"
+#include "GroundTrack.h"           
+#include "GroundTrackRenderer.h"   
 #include "EarthRenderer.h"
 #include "GridRenderer.h"
 #include "OrbitRenderer.h"
@@ -90,10 +92,10 @@ int main() {
             ui,
             animationSpeed, 
             showGrids, 
-            earthRotation  // FIXED: Use variable instead of function call
+            earthRotation  // Use the variable instead of calling the function
         );
         
-        // Update Earth rotation state from input
+        // Update Earth rotation state
         earth.setRotationEnabled(earthRotation);
         
         // Update systems
@@ -164,7 +166,7 @@ int main() {
             currentElements,
             animationSpeed,
             showGrids,
-            earthRotation,  // FIXED: Use variable instead of function call
+            earthRotation,  // Use the variable here too
             cameraController.isFollowModeEnabled(),
             GetFPS(),
             sunDirection

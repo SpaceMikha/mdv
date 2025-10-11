@@ -23,6 +23,8 @@ set(SIMULATION_SOURCES
     src/simulation/Satellite.cpp
     src/simulation/Eclipse.cpp
     src/simulation/SolarAnalysis.cpp
+    src/simulation/GroundTrack.cpp
+    src/rendering/GroundTrackRenderer.cpp
 )
 
 # Rendering sources

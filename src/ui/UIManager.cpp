@@ -1,5 +1,6 @@
 #include "UIManager.h"
 #include "Eclipse.h"
+#include "GroundTrack.h"  
 #include "Constants.h"
 #include <cstdio>
 #include <cmath>
@@ -292,11 +293,47 @@ void UIManager::drawSolarAnalysis(
     yOffset = y;
     
     // Section header
-    fonts.drawText("SOLAR PANEL ANALYSIS", x, yOffset, UITheme::FONT_SIZE_H2, 
+    fonts.drawText("GROUND TRACK & SOLAR", x, yOffset, UITheme::FONT_SIZE_H2, 
                    UITheme::WARNING, true);
     yOffset += 28;
     
     // Divider
+    UITheme::DrawDivider(x, yOffset, width);
+    yOffset += UITheme::SPACING_MD;
+    
+    // Get subsatellite point (lat/lon)
+    GeoCoordinate subsatPoint = GroundTrack::getSubsatellitePoint(
+        activeSat.getCurrentState()
+    );
+    
+    // Display lat/lon
+    fonts.drawText("Subsatellite Point", x, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_SECONDARY);
+    yOffset += 18;
+    
+    char buffer[256];
+    snprintf(buffer, sizeof(buffer), "Lat:  %+7.2f°", subsatPoint.latitude);
+    fonts.drawText(buffer, x + UITheme::SPACING_SM, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::ACCENT);
+    yOffset += 18;
+    
+    snprintf(buffer, sizeof(buffer), "Lon:  %+7.2f°", subsatPoint.longitude);
+    fonts.drawText(buffer, x + UITheme::SPACING_SM, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::ACCENT);
+    yOffset += 18;
+    
+    snprintf(buffer, sizeof(buffer), "Alt:  %.1f km", subsatPoint.altitude);
+    fonts.drawText(buffer, x + UITheme::SPACING_SM, yOffset, UITheme::FONT_SIZE_BODY, 
+                   UITheme::TEXT_PRIMARY);
+    yOffset += 26;
+    
+    // Coverage radius
+    double coverageRadius = GroundTrack::calculateCoverageRadius(subsatPoint.altitude, 5.0);
+    snprintf(buffer, sizeof(buffer), "Coverage: %.0f km radius", coverageRadius);
+    fonts.drawText(buffer, x, yOffset, UITheme::FONT_SIZE_SMALL, UITheme::TEXT_MUTED);
+    yOffset += 24;
+    
+    // Divider before solar info
     UITheme::DrawDivider(x, yOffset, width);
     yOffset += UITheme::SPACING_MD;
     
@@ -319,7 +356,6 @@ void UIManager::drawSolarAnalysis(
                    UITheme::TEXT_SECONDARY);
     yOffset += 18;
     
-    char buffer[256];
     snprintf(buffer, sizeof(buffer), "%s", solar.getPowerStatus());
     fonts.drawText(buffer, x + UITheme::SPACING_SM, yOffset, UITheme::FONT_SIZE_BODY, 
                    solar.getEfficiencyColor(), true);
