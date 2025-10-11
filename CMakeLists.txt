@@ -24,7 +24,7 @@ set(SIMULATION_SOURCES
     src/simulation/Eclipse.cpp
     src/simulation/SolarAnalysis.cpp
     src/simulation/GroundTrack.cpp
-    src/rendering/GroundTrackRenderer.cpp
+    src/simulation/GroundStation.cpp
 )
 
 # Rendering sources
@@ -33,6 +33,8 @@ set(RENDERING_SOURCES
     src/rendering/EarthRenderer.cpp
     src/rendering/GridRenderer.cpp
     src/rendering/OrbitRenderer.cpp
+    src/rendering/GroundTrackRenderer.cpp
+    src/rendering/GroundStationRenderer.cpp
 )
 
 # Camera sources
