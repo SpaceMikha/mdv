@@ -42,10 +42,14 @@ public:
     // Transitioning state
     bool isTransitioning() const { return transitioning; }
     
+    // Mouse over UI control
+    void setMouseOverUI(bool overUI) { mouseOverUI = overUI; }
+    
 private:
     Camera3D camera;
     bool followMode;
     bool transitioning;
+    bool mouseOverUI;
     Vector3 targetPosition;
     Vector3 targetTarget;
     float transitionSpeed;

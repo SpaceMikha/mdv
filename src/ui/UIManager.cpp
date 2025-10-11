@@ -2,15 +2,17 @@
 #include "Eclipse.h"
 #include "GroundTrack.h"  
 #include "Constants.h"
+#include "GroundStation.h"
 #include <cstdio>
 #include <cmath>
 
 UIManager::UIManager(int width, int height)
     : screenWidth(width), screenHeight(height),
       showLeftSidebar(true), showRightSidebar(true), showHelp(false),
-      showEclipse(true), showSolar(true),
+      showEclipse(true), showSolar(true), showGroundStations(true),
       leftSidebarOffset(0.0f), rightSidebarOffset(0.0f),
-      targetLeftOffset(0.0f), targetRightOffset(0.0f) {}
+      targetLeftOffset(0.0f), targetRightOffset(0.0f),
+      leftSidebarScroll(0.0f), leftSidebarContentHeight(0.0f) {}
 
 void UIManager::update(float deltaTime) {
     // Animate left sidebar
@@ -54,7 +56,9 @@ void UIManager::draw(
     bool earthRotation,
     bool cameraFollow,
     int fps,
-    const Vector3D &sunDirection)
+    const Vector3D &sunDirection,
+    const std::vector<GroundStation> &groundStations,
+    const std::vector<AccessStatistics> &accessStats)
 {
     drawTitleBar(fonts);
     
@@ -64,7 +68,8 @@ void UIManager::draw(
         
         // Draw sidebars with animation offset
         if (leftSidebarOffset > -(float)UITheme::SIDEBAR_WIDTH + 10.0f) {
-            drawLeftSidebar(fonts, satellites, activeSatIndex, sunDirection);
+            drawLeftSidebar(fonts, satellites, activeSatIndex, sunDirection,
+                           groundStations, accessStats);
         }
         
         if (rightSidebarOffset < (float)UITheme::SIDEBAR_WIDTH - 10.0f) {
@@ -98,7 +103,7 @@ void UIManager::drawTitleBar(const FontSystem &fonts) {
     // Version and status indicators
     int rightX = screenWidth - UITheme::SPACING_LG;
     
-    fonts.drawText("v0.8.2", 
+    fonts.drawText("v0.8.3", 
                    rightX - 60, 
                    (UITheme::TITLE_BAR_HEIGHT - 12) / 2, 
                    UITheme::FONT_SIZE_SMALL, 
@@ -216,18 +221,37 @@ void UIManager::drawLeftSidebar(
     const FontSystem &fonts,
     const std::vector<Satellite> &satellites,
     size_t activeSatIndex,
-    const Vector3D &sunDirection)
+    const Vector3D &sunDirection,
+    const std::vector<GroundStation> &groundStations,
+    const std::vector<AccessStatistics> &accessStats)
 {
     int x = (int)leftSidebarOffset;
     int y = getLeftSidebarY();
     int width = getLeftSidebarWidth();
     int height = getLeftSidebarHeight();
     
+    // Handle mouse wheel scrolling when mouse is over sidebar
+    Vector2 mousePos = GetMousePosition();
+    if (mousePos.x >= x && mousePos.x <= x + width && 
+        mousePos.y >= y && mousePos.y <= y + height) {
+        float wheel = GetMouseWheelMove();
+        leftSidebarScroll -= wheel * 40.0f; // Scroll speed
+        
+        // Clamp scroll
+        float maxScroll = leftSidebarContentHeight - height + 40.0f;
+        if (maxScroll < 0) maxScroll = 0;
+        if (leftSidebarScroll < 0) leftSidebarScroll = 0;
+        if (leftSidebarScroll > maxScroll) leftSidebarScroll = maxScroll;
+    }
+    
     // Main panel background
     UITheme::DrawPanel(x, y, width, height, UITheme::BORDER_ACCENT);
     
+    // Enable scissor mode (clipping) for scrollable content
+    BeginScissorMode(x, y, width, height);
+    
     int contentX = x + UITheme::PANEL_PADDING;
-    int contentY = y + UITheme::PANEL_PADDING;
+    int contentY = y + UITheme::PANEL_PADDING - (int)leftSidebarScroll; // Apply scroll
     int contentWidth = width - (UITheme::PANEL_PADDING * 2);
     int yOffset = contentY;
     
@@ -237,12 +261,56 @@ void UIManager::drawLeftSidebar(
     // Add spacing
     yOffset += UITheme::SPACING_XL;
     
-    // Draw solar analysis if enabled and there's a valid satellite
+    // Draw solar analysis if enabled
     if (showSolar && activeSatIndex < satellites.size()) {
         drawSolarAnalysis(fonts, satellites[activeSatIndex], sunDirection, 
                          contentX, yOffset, contentWidth, yOffset);
     }
+    
+    // Add spacing
+    yOffset += UITheme::SPACING_XL;
+    
+    // Draw ground stations if enabled
+    if (showGroundStations && !groundStations.empty()) {
+        drawGroundStations(fonts, groundStations, contentX, yOffset, contentWidth, yOffset);
+        
+        yOffset += UITheme::SPACING_XL;
+        
+        // Draw access windows
+        if (activeSatIndex < satellites.size()) {
+            drawAccessWindows(fonts, satellites[activeSatIndex], 
+                            groundStations, accessStats, 
+                            contentX, yOffset, contentWidth, yOffset);
+        }
+    }
+    
+    // Store total content height
+    leftSidebarContentHeight = (yOffset - contentY) + UITheme::PANEL_PADDING;
+    
+    EndScissorMode();
+    
+    // Draw scrollbar if content is scrollable
+    float maxScroll = leftSidebarContentHeight - height + 40.0f;
+    if (maxScroll > 0) {
+        int scrollbarWidth = 6;
+        int scrollbarX = x + width - scrollbarWidth - 4;
+        int scrollbarY = y + 4;
+        int scrollbarHeight = height - 8;
+        
+        // Scrollbar background
+        DrawRectangle(scrollbarX, scrollbarY, scrollbarWidth, scrollbarHeight, 
+                     Fade(UITheme::BORDER, 0.3f));
+        
+        // Scrollbar thumb
+        float thumbHeight = (height / leftSidebarContentHeight) * scrollbarHeight;
+        if (thumbHeight < 30) thumbHeight = 30; // Minimum thumb size
+        float thumbY = scrollbarY + (leftSidebarScroll / maxScroll) * (scrollbarHeight - thumbHeight);
+        
+        DrawRectangle(scrollbarX, (int)thumbY, scrollbarWidth, (int)thumbHeight, 
+                     UITheme::ACCENT);
+    }
 }
+
 
 void UIManager::drawSatelliteList(
     const FontSystem &fonts,
@@ -413,6 +481,127 @@ void UIManager::drawSolarAnalysis(
     }
     
     fonts.drawText(note, x, yOffset, UITheme::FONT_SIZE_SMALL, UITheme::TEXT_MUTED);
+}
+
+void UIManager::drawGroundStations(
+    const FontSystem& fonts,
+    const std::vector<GroundStation>& groundStations,
+    int x, int y, int width, int& yOffset)
+{
+    yOffset = y;
+    
+    // Section header
+    fonts.drawText("GROUND STATIONS", x, yOffset, UITheme::FONT_SIZE_H2, 
+                   UITheme::INFO, true);
+    yOffset += 28;
+    
+    // Divider
+    UITheme::DrawDivider(x, yOffset, width);
+    yOffset += UITheme::SPACING_MD;
+    
+    // Station list
+    for (const auto& station : groundStations) {
+        if (!station.visible) continue;
+        
+        fonts.drawText(station.name.c_str(), x, yOffset, UITheme::FONT_SIZE_BODY, 
+                       station.color, true);
+        
+        // Station code badge
+        char codeText[32];
+        snprintf(codeText, sizeof(codeText), "[%s]", station.code.c_str());
+        fonts.drawText(codeText, x + 140, yOffset, UITheme::FONT_SIZE_SMALL, 
+                       station.color);
+        yOffset += 20;
+        
+        // Location
+        char locText[128];
+        snprintf(locText, sizeof(locText), "  %.1f°N, %.1f°E", 
+                 station.location.latitude, station.location.longitude);
+        fonts.drawText(locText, x, yOffset, UITheme::FONT_SIZE_SMALL, 
+                       UITheme::TEXT_MUTED);
+        yOffset += 18;
+        
+        // Min elevation
+        snprintf(locText, sizeof(locText), "  Min Elev: %.0f°", 
+                 station.minElevation);
+        fonts.drawText(locText, x, yOffset, UITheme::FONT_SIZE_SMALL, 
+                       UITheme::TEXT_MUTED);
+        yOffset += 24;
+    }
+}
+
+void UIManager::drawAccessWindows(
+    const FontSystem& fonts,
+    const Satellite& activeSat,
+    const std::vector<GroundStation>& groundStations,
+    const std::vector<AccessStatistics>& accessStats,
+    int x, int y, int width, int& yOffset)
+{
+    yOffset = y;
+    
+    // Section header
+    fonts.drawText("ACCESS WINDOWS", x, yOffset, UITheme::FONT_SIZE_H2, 
+                   UITheme::SUCCESS, true);
+    yOffset += 28;
+    
+    // Divider
+    UITheme::DrawDivider(x, yOffset, width);
+    yOffset += UITheme::SPACING_MD;
+    
+    // Display statistics for each visible station
+    for (size_t i = 0; i < groundStations.size() && i < accessStats.size(); ++i) {
+        if (!groundStations[i].visible) continue;
+        
+        const auto& station = groundStations[i];
+        const auto& stats = accessStats[i];
+        
+        // Station name
+        fonts.drawText(station.name.c_str(), x, yOffset, UITheme::FONT_SIZE_BODY, 
+                       station.color, true);
+        yOffset += 20;
+        
+        char buffer[256];
+        
+        // Passes per orbit
+        snprintf(buffer, sizeof(buffer), "  Passes: %d/orbit", stats.passesPerOrbit);
+        fonts.drawText(buffer, x, yOffset, UITheme::FONT_SIZE_SMALL, 
+                       UITheme::TEXT_PRIMARY);
+        yOffset += 16;
+        
+        if (stats.passesPerOrbit > 0) {
+            // Total access time
+            snprintf(buffer, sizeof(buffer), "  Total: %.1f min", 
+                     stats.totalAccessTime / 60.0);
+            fonts.drawText(buffer, x, yOffset, UITheme::FONT_SIZE_SMALL, 
+                           UITheme::TEXT_PRIMARY);
+            yOffset += 16;
+            
+            // Average pass duration
+            snprintf(buffer, sizeof(buffer), "  Avg: %.1f min", 
+                     stats.averagePassDuration / 60.0);
+            fonts.drawText(buffer, x, yOffset, UITheme::FONT_SIZE_SMALL, 
+                           UITheme::ACCENT);
+            yOffset += 16;
+            
+            // Longest pass
+            snprintf(buffer, sizeof(buffer), "  Max: %.1f min", 
+                     stats.longestPass / 60.0);
+            fonts.drawText(buffer, x, yOffset, UITheme::FONT_SIZE_SMALL, 
+                           UITheme::SUCCESS);
+            yOffset += 16;
+        } else {
+            fonts.drawText("  No access this orbit", x, yOffset, 
+                           UITheme::FONT_SIZE_SMALL, UITheme::TEXT_MUTED);
+            yOffset += 16;
+        }
+        
+        yOffset += UITheme::SPACING_SM;
+    }
+    
+    if (groundStations.empty()) {
+        fonts.drawText("No ground stations", x, yOffset, UITheme::FONT_SIZE_SMALL, 
+                       UITheme::TEXT_MUTED);
+    }
 }
 
 void UIManager::drawRightSidebar(
@@ -618,7 +807,7 @@ void UIManager::drawKeyboardLegend(const FontSystem &fonts)
 {
     // Smaller help panel - positioned in center but more compact
     int panelW = 580;
-    int panelH = 520;
+    int panelH = 540;
     int panelX = (screenWidth - panelW) / 2;
     int panelY = (screenHeight - panelH) / 2;
     
@@ -703,6 +892,9 @@ void UIManager::drawKeyboardLegend(const FontSystem &fonts)
     fonts.drawText("Y", col2X, y, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
     fonts.drawText("Solar Analysis", col2X + 60, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
     y += 20;
+    fonts.drawText("T", col2X, y, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
+    fonts.drawText("Ground Stations", col2X + 60, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
+    y += 20;
     fonts.drawText("X", col2X, y, UITheme::FONT_SIZE_BODY, UITheme::ACCENT, true);
     fonts.drawText("This Help", col2X + 60, y, UITheme::FONT_SIZE_BODY, UITheme::TEXT_SECONDARY);
     y += 28;
@@ -725,4 +917,51 @@ void UIManager::drawKeyboardLegend(const FontSystem &fonts)
     y = panelY + panelH - 40;
     fonts.drawText("Press X to close", panelX + 220, y, UITheme::FONT_SIZE_BODY, 
                    UITheme::TEXT_MUTED);
+}
+
+bool UIManager::isMouseOverUI() const {
+    Vector2 mousePos = GetMousePosition();
+    
+    // Check if mouse is over help overlay (full screen when active)
+    if (showHelp) {
+        return true;
+    }
+    
+    // Check if mouse is over title bar
+    if (mousePos.y <= UITheme::TITLE_BAR_HEIGHT) {
+        return true;
+    }
+    
+    // Check if mouse is over status bar
+    if (mousePos.y >= screenHeight - UITheme::STATUS_BAR_HEIGHT) {
+        return true;
+    }
+    
+    // Check if mouse is over left sidebar (when visible or animating)
+    if (leftSidebarOffset > -(float)UITheme::SIDEBAR_WIDTH + 10.0f) {
+        int leftX = (int)leftSidebarOffset;
+        int leftWidth = UITheme::SIDEBAR_WIDTH;
+        int leftY = UITheme::TITLE_BAR_HEIGHT;
+        int leftHeight = screenHeight - UITheme::TITLE_BAR_HEIGHT - UITheme::STATUS_BAR_HEIGHT;
+        
+        if (mousePos.x >= leftX && mousePos.x <= leftX + leftWidth &&
+            mousePos.y >= leftY && mousePos.y <= leftY + leftHeight) {
+            return true;
+        }
+    }
+    
+    // Check if mouse is over right sidebar (when visible or animating)
+    if (rightSidebarOffset < (float)UITheme::SIDEBAR_WIDTH - 10.0f) {
+        int rightX = screenWidth - UITheme::SIDEBAR_WIDTH + (int)rightSidebarOffset;
+        int rightWidth = UITheme::SIDEBAR_WIDTH;
+        int rightY = UITheme::TITLE_BAR_HEIGHT;
+        int rightHeight = screenHeight - UITheme::TITLE_BAR_HEIGHT - UITheme::STATUS_BAR_HEIGHT;
+        
+        if (mousePos.x >= rightX && mousePos.x <= rightX + rightWidth &&
+            mousePos.y >= rightY && mousePos.y <= rightY + rightHeight) {
+            return true;
+        }
+    }
+    
+    return false;
 }

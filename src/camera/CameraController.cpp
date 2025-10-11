@@ -4,7 +4,8 @@
 #include <cmath>
 
 CameraController::CameraController()
-    : followMode(false), transitioning(false), transitionSpeed(CAMERA_TRANSITION_SPEED) {}
+    : followMode(false), transitioning(false), transitionSpeed(CAMERA_TRANSITION_SPEED),
+      mouseOverUI(false) {}
 
 void CameraController::initialize() {
     camera.position = Vector3{ 20.0f, 20.0f, 20.0f };
@@ -90,6 +91,7 @@ void CameraController::updateTransition(float deltaTime) {
 }
 
 void CameraController::updateManualRotation() {
+    if (mouseOverUI) return;
     if (!IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) return;
     
     Vector2 mouseDelta = GetMouseDelta();
@@ -121,6 +123,8 @@ void CameraController::updateManualRotation() {
 }
 
 void CameraController::updateZoom() {
+    if (mouseOverUI) return;
+    
     float wheel = GetMouseWheelMove();
     if (wheel == 0) return;
     
