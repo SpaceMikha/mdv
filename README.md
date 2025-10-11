@@ -1327,12 +1327,10 @@ OrbitPropagator
 
 ## Screenshots (Development screenshots)
 
-![Orbits Visualization](screenshots/phase4.png)
-![Orbits Visualization2](screenshots/phase4.test1.png)
-![Phase4](/screenshots/phase4.2.png)
-![Phase4.2.1](/screenshots/phase4.2.1.png)
-![Phase4.2.2](/screenshots/phase4.2.2.png)
-
+| | |
+|:--:|:--:|
+| <img src="screenshots/phase4.png" width="400" title="Initial orbit visualization"/> | <img src="screenshots/phase4.test1.png" width="400" title="Stability simulation"/> |
+| <img src="screenshots/phase4.2.png" width="400" title="Phase 4 layout update"/> | <img src="screenshots/phase4.2.1.png" width="400" title="Path optimization test"/> |
 ---
 
 **End of Document**
