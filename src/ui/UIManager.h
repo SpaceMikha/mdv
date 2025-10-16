@@ -9,6 +9,7 @@
 #include "Vector3D.h"
 #include "UITheme.h"
 #include "GroundStation.h" 
+#include "ForceModel.h"
 #include <vector>
 
 // UI Manager - handles all UI rendering with organized layout
@@ -32,7 +33,8 @@ public:
         int fps,
         const Vector3D& sunDirection,
         const std::vector<GroundStation>& groundStations,        
-        const std::vector<AccessStatistics>& accessStats        
+        const std::vector<AccessStatistics>& accessStats,
+        const ForceModel& forceModel        
     );
     
     // Toggle panels
@@ -120,7 +122,8 @@ private:
         size_t activeSatIndex,
         const Vector3D& sunDirection,
         const std::vector<GroundStation>& groundStations,        
-        const std::vector<AccessStatistics>& accessStats         
+        const std::vector<AccessStatistics>& accessStats,
+        const ForceModel& forceModel         
     );
     void drawSatelliteList(
         const FontSystem& fonts,
@@ -163,6 +166,13 @@ private:
         const OrbitalElements& elements,
         const Vector3D& sunDirection,
         int x, int y, int width
+    );
+
+    //draw force model panel
+    void drawForceModelPanel(
+        const FontSystem& fonts,
+        const ForceModel& forceModel,
+        int x, int y, int width, int& yOffset
     );
     
     // Help overlay
