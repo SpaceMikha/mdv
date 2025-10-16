@@ -2,24 +2,31 @@
 #define INTEGRATOR_H
 
 #include "StateVector.h"
+#include "ForceModel.h"
 
 class Integrator {
 public:
     virtual ~Integrator() = default;
     
-    // Pure virtual function - must be implemented by derived classes
+    // Pure virtual function 
     virtual StateVector step(
         const StateVector& current,
         double timestep,
-        double mu
+        double mu,
+        const ForceModel& forces
     ) const = 0;
     
 protected:
-    // Acceleration function: a = -μ/r³ · r
+    // Compute total acceleration from all forces
     Vector3D computeAcceleration(
         const Vector3D& position,
-        double mu
+        double mu,
+        const ForceModel& forces
     ) const;
+    
+    // Individual force calculations
+    Vector3D computePointMassGravity(const Vector3D& position, double mu) const;
+    Vector3D computeJ2Perturbation(const Vector3D& position, double mu) const;
 };
 
 // Euler integrator (simple, first-order)
@@ -28,7 +35,8 @@ public:
     StateVector step(
         const StateVector& current,
         double timestep,
-        double mu
+        double mu,
+        const ForceModel& forces
     ) const override;
 };
 
@@ -38,7 +46,8 @@ public:
     StateVector step(
         const StateVector& current,
         double timestep,
-        double mu
+        double mu,
+        const ForceModel& forces
     ) const override;
 };
 
