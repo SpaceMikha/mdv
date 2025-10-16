@@ -4,8 +4,8 @@
 #include <cmath>
 
 void GridRenderer::drawEquatorialGrid() {
-    float spacing = GRID_SPACING;
-    int numLines = GRID_LINES;
+    float spacing = GRID_SPACING * 2.0f;
+    int numLines = GRID_LINES * 2;
     
     for (int i = -numLines; i <= numLines; i++) {
         float z = i * spacing;
