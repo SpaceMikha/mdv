@@ -25,7 +25,7 @@ int main()
 {
     // Window setup
     InitWindow(0, 0, "Mission Design Visualizer v0.8.3");
-    ToggleBorderlessWindowed();
+    //ToggleBorderlessWindowed();
     SetTargetFPS(60);
 
     // Get actual screen dimensions
