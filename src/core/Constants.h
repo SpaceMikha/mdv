@@ -11,6 +11,11 @@
 const double MU_EARTH = 398600.4418;  // km^3/s^2
 const double EARTH_RADIUS = 6378.137; // km
 
+// Earth Gravity Model Constants
+const double EARTH_J2 = 1.08263e-3;        // J2 coefficient (oblateness)
+const double EARTH_J3 = -2.53266e-6;       // J3 coefficient (pear shape) - for future
+const double EARTH_J4 = -1.61962e-6;       // J4 coefficient - for future
+
 // Rendering Constants
 const float SCALE = 0.001f;  // 1 unit = 1000 km
 
