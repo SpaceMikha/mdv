@@ -4,6 +4,7 @@
 #include "Satellite.h"
 #include "CameraController.h"
 #include "UIManager.h"
+#include "ForceModel.h"
 #include <vector>
 
 // Input handler - processes all keyboard and mouse input
@@ -17,7 +18,8 @@ public:
         UIManager& ui,
         float& animationSpeed,
         bool& showGrids,
-        bool& earthRotation
+        bool& earthRotation,
+        ForceModel& forceModel
     );
     
 private:
@@ -27,6 +29,7 @@ private:
     void handleSatelliteBulkControls(std::vector<Satellite>& satellites, size_t activeSatelliteIndex);
     void handleSatelliteCycle(std::vector<Satellite>& satellites, size_t& activeSatelliteIndex, CameraController& camera);
     void handleUIToggles(UIManager& ui, bool& showGrids, bool& earthRotation);
+    void handleForceModelToggles(ForceModel& forceModel);
 };
 
 #endif // INPUT_HANDLER_H

@@ -9,7 +9,8 @@ void InputHandler::processInput(
     UIManager& ui,
     float& animationSpeed,
     bool& showGrids,
-    bool& earthRotation
+    bool& earthRotation,
+    ForceModel& forceModel  // NEW PARAMETER
 ) {
     handleAnimationControls(animationSpeed);
     handleCameraControls(camera);
@@ -17,6 +18,7 @@ void InputHandler::processInput(
     handleSatelliteBulkControls(satellites, activeSatelliteIndex);
     handleSatelliteCycle(satellites, activeSatelliteIndex, camera);
     handleUIToggles(ui, showGrids, earthRotation);
+    handleForceModelToggles(forceModel);  // NEW CALL
 }
 
 void InputHandler::handleAnimationControls(float& animationSpeed) {
@@ -119,4 +121,14 @@ void InputHandler::handleUIToggles(UIManager& ui, bool& showGrids, bool& earthRo
     if (IsKeyPressed(KEY_R)) earthRotation = !earthRotation;
     if (IsKeyPressed(KEY_V)) ui.toggleEclipse();
     if (IsKeyPressed(KEY_Y)) ui.toggleSolar();
+}
+
+// NEW FUNCTION - Handle force model toggles
+void InputHandler::handleForceModelToggles(ForceModel& forceModel) {
+    if (IsKeyPressed(KEY_M)) {
+        forceModel.j2Perturbation = !forceModel.j2Perturbation;
+    }
+    
+    // Future: Add more force model toggles here
+    // if (IsKeyPressed(KEY_N)) { forceModel.atmosphericDrag = !forceModel.atmosphericDrag; }
 }
