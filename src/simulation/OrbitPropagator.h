@@ -3,13 +3,15 @@
 
 #include "StateVector.h"
 #include "Integrator.h"
+#include "ForceModel.h"
 #include <memory>
 #include <vector>
 
 class OrbitPropagator {
 private:
     std::unique_ptr<Integrator> integrator;
-    double mu;  // Gravitational parameter
+    double mu;
+    ForceModel forceModel;
     
 public:
     OrbitPropagator(double gravitationalParameter);
@@ -29,6 +31,12 @@ public:
     
     // Change integration method
     void setIntegrator(std::unique_ptr<Integrator> newIntegrator);
+
+    void setForceModel(const ForceModel& model) { forceModel = model; }
+    ForceModel& getForceModel() { return forceModel; }
+    const ForceModel& getForceModel() const { return forceModel; }
+
+
 };
 
 #endif // ORBITPROPAGATOR_H
