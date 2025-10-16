@@ -23,6 +23,9 @@ void CameraController::update(float deltaTime, const std::vector<Satellite>& sat
         updateFollowMode(deltaTime, satellites[activeSatIndex]);
     } else if (transitioning) {
         updateTransition(deltaTime);
+    } else {
+        // When not in follow mode or transitioning, ALWAYS lock to Earth center
+        camera.target = Vector3{ 0.0f, 0.0f, 0.0f };
     }
 }
 
@@ -73,10 +76,9 @@ void CameraController::updateTransition(float deltaTime) {
     camera.position.x += (targetPosition.x - camera.position.x) * lerpSpeed;
     camera.position.y += (targetPosition.y - camera.position.y) * lerpSpeed;
     camera.position.z += (targetPosition.z - camera.position.z) * lerpSpeed;
-    
-    camera.target.x += (targetTarget.x - camera.target.x) * lerpSpeed;
-    camera.target.y += (targetTarget.y - camera.target.y) * lerpSpeed;
-    camera.target.z += (targetTarget.z - camera.target.z) * lerpSpeed;
+
+    // ALWAYS target Earth center during transitions (not following satellite)
+    camera.target = Vector3{ 0.0f, 0.0f, 0.0f };
     
     // Check if transition is complete
     float posDistance = sqrtf(
@@ -98,28 +100,33 @@ void CameraController::updateManualRotation() {
     float rotationSpeed = 0.003f;
     
     Vector3 direction = {
-        camera.position.x - camera.target.x,
-        camera.position.y - camera.target.y,
-        camera.position.z - camera.target.z
+        camera.position.x,
+        camera.position.y,
+        camera.position.z
     };
     float radius = sqrtf(direction.x*direction.x + direction.y*direction.y + direction.z*direction.z);
     
+    // Convert to spherical coordinates
     float angle = atan2f(direction.z, direction.x);
     angle -= mouseDelta.x * rotationSpeed;
     
     float elevation = asinf(direction.y / radius);
     elevation -= mouseDelta.y * rotationSpeed;
     
+    // Clamp elevation
     if (elevation > 1.5f) elevation = 1.5f;
     if (elevation < -1.5f) elevation = -1.5f;
     
-    camera.position.x = camera.target.x + radius * cosf(elevation) * cosf(angle);
-    camera.position.y = camera.target.y + radius * sinf(elevation);
-    camera.position.z = camera.target.z + radius * cosf(elevation) * sinf(angle);
+    // Position camera around origin
+    camera.position.x = radius * cosf(elevation) * cosf(angle);
+    camera.position.y = radius * sinf(elevation);
+    camera.position.z = radius * cosf(elevation) * sinf(angle);
     
-    // Update targets when manually moving
+    // Target is ALWAYS at origin
+    camera.target = Vector3{ 0.0f, 0.0f, 0.0f };
+    
+    // Update target position for other systems
     targetPosition = camera.position;
-    targetTarget = camera.target;
 }
 
 void CameraController::updateZoom() {
@@ -129,9 +136,9 @@ void CameraController::updateZoom() {
     if (wheel == 0) return;
     
     Vector3 direction = {
-        camera.position.x - camera.target.x,
-        camera.position.y - camera.target.y,
-        camera.position.z - camera.target.z
+        camera.position.x,
+        camera.position.y,
+        camera.position.z
     };
     float distance = sqrtf(direction.x*direction.x + direction.y*direction.y + direction.z*direction.z);
     
@@ -141,14 +148,14 @@ void CameraController::updateZoom() {
     if (distance < CAMERA_MIN_DISTANCE) distance = CAMERA_MIN_DISTANCE;
     if (distance > CAMERA_MAX_DISTANCE) distance = CAMERA_MAX_DISTANCE;
     
+    // Normalize and scale
     float currentDist = sqrtf(direction.x*direction.x + direction.y*direction.y + direction.z*direction.z);
-    direction.x = direction.x / currentDist * distance;
-    direction.y = direction.y / currentDist * distance;
-    direction.z = direction.z / currentDist * distance;
+    camera.position.x = (direction.x / currentDist) * distance;
+    camera.position.y = (direction.y / currentDist) * distance;
+    camera.position.z = (direction.z / currentDist) * distance;
     
-    camera.position.x = camera.target.x + direction.x;
-    camera.position.y = camera.target.y + direction.y;
-    camera.position.z = camera.target.z + direction.z;
+    // Target stays at origin
+    camera.target = Vector3{ 0.0f, 0.0f, 0.0f };
     
     targetPosition = camera.position;
 }
@@ -186,6 +193,7 @@ void CameraController::setFollowMode(bool enabled) {
     if (!followMode) {
         targetPosition = Vector3{ 20.0f, 20.0f, 20.0f };
         targetTarget = Vector3{ 0.0f, 0.0f, 0.0f };
+        camera.target = Vector3{ 0.0f, 0.0f, 0.0f };
         transitioning = true;
     }
 }

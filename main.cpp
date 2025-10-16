@@ -25,7 +25,7 @@ int main()
 {
     // Window setup
     InitWindow(0, 0, "Mission Design Visualizer v0.8.3");
-    ToggleFullscreen();
+    ToggleBorderlessWindowed();
     SetTargetFPS(60);
 
     // Get actual screen dimensions
@@ -102,8 +102,6 @@ int main()
     float animationSpeed = 1.0f;
     bool showGrids = true;
     bool earthRotation = true;
-    bool showGroundStations = true;
-    bool showAccessLines = true;
 
     std::cout << "\nVisualization ready!\n";
     std::cout << "Controls:\n";
@@ -114,8 +112,7 @@ int main()
     std::cout << "  E: Toggle right sidebar\n";
     std::cout << "  V: Toggle eclipse visualization\n";
     std::cout << "  Y: Toggle solar panel analysis\n";
-    std::cout << "  T: Toggle ground stations\n";
-    std::cout << "  U: Toggle access lines\n";
+    std::cout << "  R: Toggle Earth rotation\n";
 
     // Main loop
     while (!WindowShouldClose())
@@ -132,11 +129,6 @@ int main()
             showGrids,
             earthRotation);
 
-        // Ground station controls
-        if (IsKeyPressed(KEY_T))
-            showGroundStations = !showGroundStations;
-        if (IsKeyPressed(KEY_U))
-            showAccessLines = !showAccessLines;
 
         // Update Earth rotation state
         earth.setRotationEnabled(earthRotation);
@@ -151,7 +143,6 @@ int main()
         // Handle camera controls (will now respect UI mouse-over state)
         cameraController.update(deltaTime, satellites, activeSatelliteIndex);
         cameraController.handleManualControls();
-        ui.update(deltaTime);
 
         // Advance satellite animations
         if (animationSpeed > 0.01f)
@@ -205,29 +196,6 @@ int main()
             Vector3 sunEnd = RenderUtils::toRaylib(
                 satellites[activeSatelliteIndex].getCurrentState().position + sunDirScaled);
             DrawLine3D(satPos, sunEnd, Color{245, 158, 11, 255}); // UITheme::WARNING (yellow)
-        }
-
-        // Ground station rendering
-        if (showGroundStations)
-        {
-            GroundStationRenderer::drawAllGroundStations(
-                groundStations, true, EARTH_RADIUS);
-
-            if (showAccessLines && activeSatelliteIndex < satellites.size())
-            {
-                for (size_t i = 0; i < groundStations.size(); ++i)
-                {
-                    if (groundStations[i].visible)
-                    {
-                        GroundStationRenderer::drawAccessVisualization(
-                            groundStations[i],
-                            satellites[activeSatelliteIndex],
-                            allAccessStats[activeSatelliteIndex][i],
-                            EARTH_RADIUS,
-                            satellites[activeSatelliteIndex].getCurrentState().time);
-                    }
-                }
-            }
         }
 
         EndMode3D();
