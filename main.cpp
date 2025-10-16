@@ -25,7 +25,7 @@ int main()
 {
     // Window setup
     InitWindow(0, 0, "Mission Design Visualizer v0.8.3");
-    //ToggleBorderlessWindowed();
+    // ToggleBorderlessWindowed();
     SetTargetFPS(60);
 
     // Get actual screen dimensions
@@ -53,6 +53,9 @@ int main()
 
     // Create orbit propagator
     OrbitPropagator propagator(MU_EARTH);
+
+    // Get force model reference for UI control
+    ForceModel &forceModel = propagator.getForceModel();
 
     // Generate all preset orbits
     std::vector<OrbitPreset> presets = OrbitPresets::getAllPresets(MU_EARTH);
@@ -127,8 +130,8 @@ int main()
             ui,
             animationSpeed,
             showGrids,
-            earthRotation);
-
+            earthRotation,
+            forceModel);
 
         // Update Earth rotation state
         earth.setRotationEnabled(earthRotation);
@@ -213,7 +216,9 @@ int main()
             GetFPS(),
             sunDirection,
             groundStations,
-            allAccessStats[activeSatelliteIndex]);
+            allAccessStats[activeSatelliteIndex],
+            forceModel),
+            
 
         EndDrawing();
     }
