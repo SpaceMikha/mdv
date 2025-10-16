@@ -4,27 +4,32 @@
 #include "raylib.h"
 
 // Earth rendering system
-class EarthRenderer {
+class EarthRenderer
+{
 public:
     EarthRenderer();
     ~EarthRenderer();
-    
+
     // Initialize Earth model and texture
     void load();
-    
+
     // Update rotation
     void update(float deltaTime);
-    
+
     // Render Earth
     void draw() const;
-    
+
     // Cleanup
     void unload();
-    
+
     // Control rotation
     void setRotationEnabled(bool enabled) { rotationEnabled = enabled; }
     bool isRotationEnabled() const { return rotationEnabled; }
-    
+
+    float getRotationAngle() const { return rotationAngle; }
+    Model &getModel() { return earthModel; }
+    bool isTextureLoaded() const { return textureLoaded; }
+
 private:
     Model earthModel;
     Texture2D earthTexture;
