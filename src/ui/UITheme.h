@@ -9,6 +9,7 @@ namespace UITheme {
     inline const Color PRIMARY = Color{30, 58, 138, 255};      // Deep Blue #1E3A8A
     inline const Color SECONDARY = Color{59, 130, 246, 255};   // Bright Blue #3B82F6
     inline const Color ACCENT = Color{16, 185, 129, 255};      // Green #10B981
+    inline const Color PREALPHA_ACCENT = Color{236, 72, 153, 255}; // Pink #EC4899 
     
     // Status Colors
     inline const Color SUCCESS = Color{16, 185, 129, 255};     // Green #10B981

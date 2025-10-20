@@ -116,11 +116,11 @@ void UIManager::drawTitleBar(const FontSystem &fonts)
         UITheme::BORDER_ACCENT);
 
     // Title
-    fonts.drawText("MISSION DESIGN VISUALIZER",
+    fonts.drawText("NewtonX - PREALPHA BUILD 0.8.3",
                    UITheme::SPACING_LG,
                    (UITheme::TITLE_BAR_HEIGHT - 28) / 2,
                    UITheme::FONT_SIZE_TITLE,
-                   UITheme::SECONDARY,
+                   UITheme::PREALPHA_ACCENT,
                    true);
 
     // Version and status indicators
