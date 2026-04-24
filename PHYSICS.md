@@ -1,5 +1,5 @@
-# The Physics of Orbital Motion
-## A Theoretical and Philosophical Treatise on Celestial Mechanics
+# The Analytic Mechanics of Orbital Motion
+## A Mathematical-Physics Treatise on Celestial Dynamics
 
 **Mikhael da Silva** — *Independent Researcher*
 *Companion volume to the Mission Design Visualizer project*
@@ -8,587 +8,617 @@
 
 ---
 
-> *An orbit is the geometry of a falling that never arrives — a perpetual deferral of collision into curvature.*
-
----
-
 ## Preface
 
-This document is a theoretical and philosophical companion to the *Mission Design Visualizer*. It is deliberately restricted to the physics of orbital motion: it contains no software, no implementation detail, no engineering heuristics. Its subject is the structure of celestial mechanics as a mathematical theory and as an object of philosophical reflection.
+This treatise is a mathematical-physics companion to the *Mission Design Visualizer*. Its subject is the analytic structure of celestial mechanics: the geometry of phase space, the variational foundations of the equations of motion, the integrability and regularization of the Kepler problem, the rigorous statements of KAM and Nekhoroshev theory, the ergodic properties of Hamiltonian flows, the post-Newtonian hierarchy, and the backward error analysis of structure-preserving integrators. It contains no software, no implementation detail, and no engineering heuristics.
 
-The work is organised along a single dialectical arc. We begin with the Newtonian picture, in which bodies are acted upon by forces propagated instantaneously across an inert Euclidean space. We reformulate this picture variationally, then canonically, and in doing so discover that the orbit is not primarily a trajectory in physical space but a flow on a symplectic manifold. We examine the integrability of the Kepler problem, the failure of integrability under perturbation, and the emergence of deterministic chaos. We conclude with the general-relativistic reinterpretation of gravitation as spacetime curvature, and with a meditation on the epistemic status of numerical propagation.
-
-The exposition presupposes fluency in classical mechanics, vector calculus, and ordinary differential equations. Familiarity with differential geometry and Hamiltonian dynamics is desirable but not strictly required; the requisite structures are introduced where they first become indispensable.
+The exposition presupposes fluency in differential geometry on smooth manifolds (tangent and cotangent bundles, differential forms, Lie derivatives), functional analysis at the level of Banach manifolds of paths, and ordinary differential equations. Measure-theoretic ergodic theory and elementary Lie theory are used freely. Each section is organised around formal statements of its principal theorems; philosophical commentary has been restricted to what is necessary to motivate the mathematics.
 
 ---
 
 ## Table of Contents
 
-1. [Prolegomena: The Philosophy of Celestial Mechanics](#1-prolegomena-the-philosophy-of-celestial-mechanics)
-2. [The Newtonian Paradigm](#2-the-newtonian-paradigm)
-3. [Conservation Laws and the Geometry of the Kepler Problem](#3-conservation-laws-and-the-geometry-of-the-kepler-problem)
-4. [The Lagrangian Formulation](#4-the-lagrangian-formulation)
-5. [The Hamiltonian Formulation and Phase Space](#5-the-hamiltonian-formulation-and-phase-space)
-6. [Action–Angle Variables and Integrability](#6-actionangle-variables-and-integrability)
-7. [Perturbation Theory and the Collapse of Integrability](#7-perturbation-theory-and-the-collapse-of-integrability)
-8. [Chaos, KAM Theory, and the Three-Body Problem](#8-chaos-kam-theory-and-the-three-body-problem)
-9. [Geometric Mechanics and Symmetry Reduction](#9-geometric-mechanics-and-symmetry-reduction)
-10. [General Relativistic Corrections](#10-general-relativistic-corrections)
-11. [Discretisation as an Epistemological Act](#11-discretisation-as-an-epistemological-act)
-12. [Closing Meditations](#12-closing-meditations)
-13. [References and Further Reading](#13-references-and-further-reading)
+1. [Mathematical Preliminaries and Notation](#1-mathematical-preliminaries-and-notation)
+2. [Newtonian Mechanics on Configuration Manifolds](#2-newtonian-mechanics-on-configuration-manifolds)
+3. [The Kepler Problem: Analytic Structure](#3-the-kepler-problem-analytic-structure)
+4. [Regularization of the Kepler Problem](#4-regularization-of-the-kepler-problem)
+5. [Lagrangian Mechanics and the Calculus of Variations](#5-lagrangian-mechanics-and-the-calculus-of-variations)
+6. [Hamiltonian Mechanics and Symplectic Geometry](#6-hamiltonian-mechanics-and-symplectic-geometry)
+7. [The Hamilton–Jacobi Equation and Action–Angle Variables](#7-the-hamiltonjacobi-equation-and-actionangle-variables)
+8. [Liouville–Arnold Integrability](#8-liouvillearnold-integrability)
+9. [Classical Perturbation Theory](#9-classical-perturbation-theory)
+10. [KAM Theory](#10-kam-theory)
+11. [Nekhoroshev Estimates and Arnold Diffusion](#11-nekhoroshev-estimates-and-arnold-diffusion)
+12. [Geometric Mechanics and Symplectic Reduction](#12-geometric-mechanics-and-symplectic-reduction)
+13. [Ergodic Theory of Hamiltonian Flows](#13-ergodic-theory-of-hamiltonian-flows)
+14. [Relativistic Celestial Mechanics](#14-relativistic-celestial-mechanics)
+15. [Structure-Preserving Numerical Integration](#15-structure-preserving-numerical-integration)
+16. [References](#16-references)
 
 ---
 
-## 1. Prolegomena: The Philosophy of Celestial Mechanics
+## 1. Mathematical Preliminaries and Notation
 
-### 1.1 The Epistemic Peculiarity of Orbital Knowledge
+We work on a smooth $n$-dimensional manifold $\mathcal{Q}$ (the *configuration manifold*), typically Riemannian $(\mathcal{Q}, g)$. The tangent and cotangent bundles are $T\mathcal{Q}$ and $T^*\mathcal{Q}$; local coordinates are $(q^i)$, $(q^i, \dot q^i)$, and $(q^i, p_i)$, with Einstein summation. $\mathcal{L}_X$ denotes the Lie derivative along $X$; $\iota_X$ the contraction; $d$ the exterior derivative. The space of smooth functions is $C^\infty(M)$; the space of $k$-forms is $\Omega^k(M)$. For Banach manifolds of paths we write $C^r([a,b], \mathcal{Q})$.
 
-Celestial mechanics occupies a peculiar epistemic position among the physical sciences. Its objects — planets, satellites, comets — are inaccessible to intervention. We cannot perturb Jupiter to observe its recovery, nor hold Mars fixed to isolate a variable. The laboratory of celestial mechanics is the one that exists; the experiment is the one that is running. All of our knowledge is therefore observational, and all observation is knowledge of a system already underway.
+Throughout, $G = 6.67430 \times 10^{-11}\,\mathrm{m^3\,kg^{-1}\,s^{-2}}$, $\mu = GM$, $\mu_\oplus = 398\,600.4418\,\mathrm{km^3\,s^{-2}}$, and $R_\oplus = 6378.137\,\mathrm{km}$. We work in units where, unless otherwise indicated, $c = 1$ in relativistic sections.
 
-This non-interventionist posture forced, from antiquity, an unusually abstract discipline. Ptolemy's epicycles were not false theories awaiting refutation; they were mathematical representations, geometric devices that *saved the phenomena* (σῴζειν τὰ φαινόμενα) without committing to causal claims. The modern presumption that a theory must also be a claim about what *really exists* is a post-Newtonian inheritance, and one worth pausing over.
-
-### 1.2 From Description to Causation
-
-The transition from Kepler to Newton is the transition from a kinematic to a dynamical science. Kepler's three laws — elliptical orbits, equal areas in equal times, the harmonic relation $T^2 \propto a^3$ — are descriptive; they codify observed regularities. Newton's law of universal gravitation is *causal*; it asserts a relation between the masses of bodies and the forces that constrain their motion, and it derives Kepler's laws as consequences of a deeper principle.
-
-This transition was not without metaphysical cost. Newton himself was acutely uncomfortable with action-at-a-distance: that a body here should exert an instantaneous force on a body *there*, across empty space, with no intervening medium, seemed to him
-
-> *so great an absurdity that I believe no man who has in philosophical matters a competent faculty of thinking can ever fall into it.*
-> — Letter to Bentley, 25 February 1693
-
-Newton's mechanics worked. But the *Principia* did not explain gravity; it quantified it. The explanation — the re-interpretation of gravitation as the curvature of spacetime — would wait two and a half centuries, and we shall return to it in §10.
-
-### 1.3 The Orbit as Mathematical Object
-
-A fundamental question of the philosophy of celestial mechanics is: *what kind of object is an orbit?* Three answers compete:
-
-1. **The orbit as trajectory.** The orbit is the curve traced in physical space by a body under gravitational influence. This is the naïve view, sufficient for navigation and observation, but it misrepresents the mathematical structure of the theory.
-
-2. **The orbit as integral curve.** The orbit is a solution of a differential equation — a curve $\gamma(t)$ satisfying $\ddot{\mathbf{r}} = -\mu \mathbf{r}/r^3$ with prescribed initial conditions. This is the Newtonian view.
-
-3. **The orbit as symplectic leaf.** The orbit is a one-dimensional integral manifold of a Hamiltonian vector field on a six-dimensional symplectic manifold (phase space), foliated by the level sets of the integrals of motion into invariant tori. This is the modern geometric view, and it is the one this treatise will ultimately endorse.
-
-The ascent from (1) through (3) is not mere formalism. Each reformulation reveals structure invisible at the previous level. The elliptical shape of a bound Keplerian orbit is a consequence of a hidden SO(4) symmetry. The stability of the solar system is a statement about the measure of invariant tori under perturbation. These are not facts visible in trajectories; they are facts visible in the geometry of the space that trajectories inhabit.
+**Regularity assumptions.** Unless stated otherwise, Hamiltonians and Lagrangians are assumed $C^\omega$ (real-analytic) on their domains of definition. Estimates in KAM and Nekhoroshev theory depend sharply on analyticity radii; we denote by $\|H\|_{r}$ the norm of $H$ on a complex strip of width $r$.
 
 ---
 
-## 2. The Newtonian Paradigm
+## 2. Newtonian Mechanics on Configuration Manifolds
 
-### 2.1 The Law of Universal Gravitation
+### 2.1 The equations of motion
 
-Newton's law asserts that two point masses $m_1$ and $m_2$ separated by $\mathbf{r}_{12} = \mathbf{r}_2 - \mathbf{r}_1$ exert on each other an attractive force
+For a mechanical system with Lagrangian $L = \tfrac{1}{2} g_{ij}(q)\dot q^i \dot q^j - U(q)$, the equations of motion are the **geodesic equation with force**:
 
-$$\mathbf{F}_{12} = -G \frac{m_1 m_2}{r_{12}^3}\, \mathbf{r}_{12},$$
+$$\nabla_{\dot\gamma}\dot\gamma = -\,\mathrm{grad}\,U,$$
 
-where $G = 6.67430 \times 10^{-11}\,\mathrm{m^3\,kg^{-1}\,s^{-2}}$ is the universal gravitational constant. Three features of this law warrant remark.
+where $\nabla$ is the Levi-Civita connection of $g$. On $\mathcal{Q} = \mathbb{R}^3$ with Euclidean metric, this reduces to Newton's second law
 
-First, the force is *central*: it is directed along the line joining the two masses. This is the geometric root of the conservation of angular momentum.
+$$\ddot{\mathbf{r}} = -\nabla U(\mathbf{r}).$$
 
-Second, the force is *conservative*: it is the gradient of a scalar potential,
+**Theorem (existence and uniqueness).** *Let $U \in C^{1,1}_{\mathrm{loc}}(\mathcal{Q})$. For any $(q_0, v_0) \in T\mathcal{Q}$, there exists a unique maximal solution $\gamma \in C^2((-T_-, T_+), \mathcal{Q})$ with $\gamma(0) = q_0$, $\dot\gamma(0) = v_0$. If $U$ is bounded below and $T_+ < \infty$, then $|\dot\gamma(t)| \to \infty$ as $t \to T_+$.*
 
-$$\mathbf{F}_{12} = -\nabla_1 U(r_{12}), \qquad U(r) = -\frac{G m_1 m_2}{r}.$$
+For the Kepler potential $U(r) = -\mu/r$, the singular set $\{r = 0\}$ admits solutions reaching it in finite time (collision orbits). These are the orbits for which regularization becomes necessary; cf. §4.
 
-This is the geometric root of the conservation of energy.
+### 2.2 Reduction of the two-body problem
 
-Third, the dependence on separation is precisely $1/r^2$. No other inverse-power law produces closed, non-precessing orbits for arbitrary bound initial conditions — a theorem due to **Bertrand (1873)**. That our universe should exhibit exactly this power is, in a sense, what makes celestial mechanics analytically tractable; a $1/r^{2+\varepsilon}$ force would render every orbit a precessing rosette, and the classical tradition that flows from Kepler through Newton would not exist.
+Let $\mathbf{r}_1, \mathbf{r}_2 \in \mathbb{R}^3$ be two bodies of masses $m_1, m_2$. Define
 
-### 2.2 Reduction to the One-Body Problem
+$$\mathbf{R} = \frac{m_1 \mathbf{r}_1 + m_2 \mathbf{r}_2}{m_1 + m_2}, \qquad \mathbf{r} = \mathbf{r}_2 - \mathbf{r}_1.$$
 
-Consider two bodies $m_1$ and $m_2$ under their mutual gravitation. Define the centre of mass $\mathbf{R} = (m_1\mathbf{r}_1 + m_2\mathbf{r}_2)/(m_1+m_2)$ and the relative position $\mathbf{r} = \mathbf{r}_2 - \mathbf{r}_1$. Newton's third law ensures $\ddot{\mathbf{R}} = 0$: the centre of mass moves uniformly, a free particle.
+The mapping $(\mathbf{r}_1, \mathbf{r}_2) \mapsto (\mathbf{R}, \mathbf{r})$ is a linear diffeomorphism of $\mathbb{R}^6 \to \mathbb{R}^6$ with Jacobian $1$, and it decouples the equations of motion:
 
-The relative coordinate satisfies
+$$(m_1 + m_2)\ddot{\mathbf{R}} = 0, \qquad \mu_r\,\ddot{\mathbf{r}} = -G m_1 m_2 \frac{\mathbf{r}}{r^3}, \qquad \mu_r = \frac{m_1 m_2}{m_1 + m_2}.$$
 
-$$\mu_r \ddot{\mathbf{r}} = -\frac{G m_1 m_2}{r^3}\,\mathbf{r}, \qquad \mu_r \equiv \frac{m_1 m_2}{m_1 + m_2},$$
+Rescaling by $\mu_r$ yields the equation of motion in the centre-of-mass frame:
 
-where $\mu_r$ is the *reduced mass*. The two-body problem thus decomposes into a free translation of the centre of mass and a single effective particle of mass $\mu_r$ orbiting a fixed centre of force. For spacecraft, $m_1 \ll m_2 = M_\oplus$, and $\mu_r \approx m_1$; the reduction is exact but practically indistinguishable from the test-particle idealisation, in which
+$$\ddot{\mathbf{r}} = -\frac{\mu}{r^3}\mathbf{r}, \qquad \mu = G(m_1 + m_2).$$
 
-$$\ddot{\mathbf{r}} = -\frac{\mu}{r^3}\,\mathbf{r}, \qquad \mu \equiv G M_\oplus = 398\,600.4418\,\mathrm{km^3\,s^{-2}}.$$
+### 2.3 Bertrand's theorem
 
-The quantity $\mu$, the *gravitational parameter* of Earth, is known far more precisely than either $G$ or $M_\oplus$ individually. This is a recurring feature of celestial mechanics: products of fundamental constants are often measurable to much higher precision than the constants themselves.
+**Theorem (Bertrand, 1873).** *Let $U: (0,\infty) \to \mathbb{R}$ be smooth, and suppose every bound orbit of the central-force problem with potential $U(r)$ is closed. Then $U(r) = -\mu/r$ (Kepler) or $U(r) = \tfrac12\omega^2 r^2$ (harmonic oscillator), up to additive and multiplicative constants.*
 
-### 2.3 The Metaphysics of the Reduced Problem
-
-The reduction of the two-body problem to the motion of a fictitious particle in a fixed central potential is conceptually radical. The "particle of reduced mass" is not, in any ordinary sense, a *thing*. It is a mathematical construct that enables us to treat a relational property of two bodies — their separation vector — as if it were the position of a single entity. This is an early, and still under-appreciated, example of the mathematical structure of a physical theory departing from its ontology. We shall encounter more dramatic examples as we proceed.
+A proof via perturbation of circular orbits is given in Arnold (1989), Appendix 2C. The theorem isolates the Kepler problem and the harmonic oscillator as the only central-force problems in which the frequency of radial oscillation and the frequency of angular revolution are commensurate for every bound orbit — a $1:1$ ratio for Kepler, a $1:2$ ratio for the harmonic oscillator.
 
 ---
 
-## 3. Conservation Laws and the Geometry of the Kepler Problem
+## 3. The Kepler Problem: Analytic Structure
 
-### 3.1 Energy, Angular Momentum, and the Laplace–Runge–Lenz Vector
+### 3.1 Conserved quantities
 
-The Kepler problem — motion in a $-\mu/r$ central potential — admits three vector integrals of motion beyond the trivial ones:
+The Kepler Hamiltonian on $T^*(\mathbb{R}^3 \setminus \{0\})$,
 
-1. **Specific orbital energy** (a scalar):
-$$\varepsilon = \tfrac{1}{2} v^2 - \frac{\mu}{r}.$$
+$$H(\mathbf{r}, \mathbf{p}) = \frac{|\mathbf{p}|^2}{2} - \frac{\mu}{r},$$
 
-2. **Specific angular momentum** (a vector):
-$$\mathbf{h} = \mathbf{r} \times \mathbf{v}.$$
+admits three independent vector integrals:
 
-3. **The Laplace–Runge–Lenz vector** (a vector):
-$$\mathbf{A} = \mathbf{v} \times \mathbf{h} - \mu\,\hat{\mathbf{r}}.$$
+$$\mathbf{L} = \mathbf{r} \times \mathbf{p}, \qquad \mathbf{A} = \mathbf{p} \times \mathbf{L} - \mu \hat{\mathbf{r}},$$
 
-That $\varepsilon$ and $\mathbf{h}$ are conserved follows from the conservative and central character of the force. The conservation of $\mathbf{A}$, however, is more subtle. It is a peculiarity of the $1/r$ potential — a manifestation, as we shall see, of a hidden symmetry group larger than the manifest $SO(3)$ of central forces.
+the angular momentum and the **Laplace–Runge–Lenz vector**, along with the scalar $H$. Of these seven components, only five are independent, as a consequence of the identities $\mathbf{A} \cdot \mathbf{L} = 0$ and $|\mathbf{A}|^2 = \mu^2 + 2 H |\mathbf{L}|^2$.
 
-### 3.2 The Orbit Equation
+### 3.2 The orbit equation
 
-Crossing the angular momentum equation with $\mathbf{r}$ and integrating yields the orbit in polar form:
+Crossing $\ddot{\mathbf{r}} = -\mu \mathbf{r}/r^3$ with $\mathbf{L}$ and integrating once yields
 
-$$r(\theta) = \frac{p}{1 + e \cos(\theta - \theta_0)}, \qquad p = \frac{h^2}{\mu}, \qquad e = \frac{|\mathbf{A}|}{\mu}.$$
+$$\mathbf{p} \times \mathbf{L} = \mu\hat{\mathbf{r}} + \mathbf{A}.$$
 
-This is a conic section. The eccentricity $e$ — or equivalently, the magnitude of the Laplace–Runge–Lenz vector — determines the orbit type:
+Dotting with $\mathbf{r}$ and denoting the angle from $\mathbf{A}$ to $\mathbf{r}$ by $\nu$,
 
-| $e$ | $\varepsilon$ | Conic |
-|-----|---------------|-------|
-| $0$ | $-\mu/(2a)$ | Circle |
-| $0 < e < 1$ | $-\mu/(2a)$ | Ellipse |
-| $1$ | $0$ | Parabola |
-| $> 1$ | $+\mu/(2a)$ | Hyperbola |
+$$r(\nu) = \frac{p}{1 + e\cos\nu}, \qquad p = \frac{|\mathbf{L}|^2}{\mu}, \qquad e = \frac{|\mathbf{A}|}{\mu}.$$
 
-The direction of $\mathbf{A}$ points from the centre of attraction to the periapsis. It thus encodes the *orientation* of the orbit in its plane — a datum that is, geometrically speaking, an additional integral of motion beyond energy and angular momentum. It is this "extra" integral that is responsible for the closed nature of bound Keplerian orbits.
+The orbit is a conic section with focus at the origin. The relation $e^2 - 1 = 2 H |\mathbf{L}|^2 / \mu^2$ classifies bound orbits by $H < 0$.
 
-### 3.3 The Hidden $SO(4)$ Symmetry
+### 3.3 Fock's theorem and the $SO(4)$ dynamical symmetry
 
-A central-force problem generically has only $SO(3)$ rotational symmetry, which yields three conserved quantities (the components of $\mathbf{h}$). That the Kepler problem has a fourth vector integral — the Laplace–Runge–Lenz vector — signals the presence of a larger symmetry group. Explicit computation reveals that for bound orbits ($\varepsilon < 0$) the Poisson brackets of the components of $\mathbf{h}$ and the rescaled vector $\mathbf{A}/\sqrt{-2\varepsilon}$ close to form the Lie algebra $\mathfrak{so}(4)$ — the algebra of infinitesimal rotations in four dimensions.
+**Theorem (Fock, 1935).** *On the subspace $\{H < 0\} \subset T^*(\mathbb{R}^3\setminus\{0\})$, the Poisson brackets of the components of $\mathbf{L}$ and $\tilde{\mathbf{A}} = \mathbf{A}/\sqrt{-2 H}$ satisfy*
 
-The orbital phase space of the bound Kepler problem is thus acted upon by $SO(4)$, not merely by $SO(3)$. This is **Fock's theorem (1935)**, and it has a remarkable physical counterpart: the degeneracy of the energy levels of the non-relativistic hydrogen atom, in which states of different angular momentum share the same energy, is a quantum shadow of this classical $SO(4)$ symmetry.
+$$\{L_i, L_j\} = \varepsilon_{ijk} L_k, \quad \{L_i, \tilde A_j\} = \varepsilon_{ijk}\tilde A_k, \quad \{\tilde A_i, \tilde A_j\} = \varepsilon_{ijk} L_k,$$
 
-That celestial mechanics and atomic physics should share a symmetry group is a deep fact. It is not a coincidence but a consequence of their common mathematical core: both are $1/r$ problems. The universe, at both scales, has chosen the same potential.
+*which is the Lie algebra $\mathfrak{so}(4) \cong \mathfrak{so}(3) \oplus \mathfrak{so}(3)$ under the change of basis $\mathbf{J}^\pm = \tfrac12(\mathbf{L} \pm \tilde{\mathbf{A}})$.*
 
----
+*Sketch.* The brackets are verified by direct computation; the identity $|\mathbf{A}|^2 - \mu^2 = 2 H |\mathbf{L}|^2$ ensures that the Casimirs $|\mathbf{J}^\pm|^2$ coincide and fix the energy. $\square$
 
-## 4. The Lagrangian Formulation
+The theorem has two consequences of first importance.
 
-### 4.1 The Principle of Stationary Action
+- *Quantum counterpart.* In the hydrogen atom, the analogue of $\mathbf{J}^\pm$ generates a unitary representation of $SO(4)$; the principal quantum number $n$ labels irreducible representations, yielding the $n^2$-fold energy degeneracy — the Bohr spectrum is the $SO(4)$ multiplet structure.
+- *Hidden symmetry.* The Kepler problem possesses a symmetry larger than the geometric $SO(3)$. As we shall see in §8.3, this is precisely what makes its action–angle variables *degenerate*: two of the three fundamental frequencies coincide.
 
-The Newtonian formulation is vectorial: it describes motion in terms of forces applied to particles. The Lagrangian formulation is variational: it describes motion in terms of a global criterion, the *action*,
+### 3.4 Kepler's equation
 
-$$S[\gamma] = \int_{t_1}^{t_2} L(q,\dot q,t)\, dt,$$
+Let $M = n(t - t_0)$ with mean motion $n = \sqrt{\mu/a^3}$ be the mean anomaly, $E$ the eccentric anomaly. Then
 
-defined on paths $\gamma: [t_1, t_2] \to \mathcal{Q}$ in the configuration manifold $\mathcal{Q}$. The physical trajectory is the one along which $S$ is stationary under variations vanishing at the endpoints:
+$$M = E - e \sin E \qquad \text{(Kepler's equation)}.$$
 
-$$\delta S = 0 \quad \Longleftrightarrow \quad \frac{d}{dt}\frac{\partial L}{\partial \dot q^i} - \frac{\partial L}{\partial q^i} = 0.$$
+This is a transcendental equation in $E$. The Newton iteration
 
-These are the **Euler–Lagrange equations**. For orbital motion, the Lagrangian is
+$$E_{k+1} = E_k - \frac{E_k - e\sin E_k - M}{1 - e\cos E_k}$$
 
-$$L = T - U = \tfrac{1}{2}|\dot{\mathbf{r}}|^2 + \frac{\mu}{r}.$$
-
-In polar coordinates $(r, \theta)$, with $\dot{\mathbf{r}} \cdot \dot{\mathbf{r}} = \dot r^2 + r^2 \dot\theta^2$,
-
-$$L(r,\theta,\dot r, \dot\theta) = \tfrac{1}{2}(\dot r^2 + r^2 \dot\theta^2) + \frac{\mu}{r}.$$
-
-### 4.2 Cyclic Coordinates and Conservation
-
-The coordinate $\theta$ does not appear explicitly in $L$: it is *cyclic*. The corresponding momentum
-
-$$p_\theta = \frac{\partial L}{\partial \dot\theta} = r^2 \dot\theta$$
-
-is therefore conserved. This quantity is the specific angular momentum $h$. Conservation of angular momentum is thus, under this analysis, not a separate physical fact but a consequence of the rotational symmetry of the problem — a preview of Noether's theorem.
-
-### 4.3 The Effective Potential
-
-Substituting the conservation law $\dot\theta = h/r^2$ into the energy gives
-
-$$\varepsilon = \tfrac{1}{2}\dot r^2 + \underbrace{\frac{h^2}{2 r^2} - \frac{\mu}{r}}_{V_{\text{eff}}(r)}.$$
-
-The radial motion is that of a one-dimensional particle in the effective potential $V_{\text{eff}}$. This potential has a centrifugal barrier $h^2/(2r^2)$ at small $r$ and a Newtonian well $-\mu/r$ at large $r$. Its minimum,
-
-$$r_* = \frac{h^2}{\mu}, \qquad V_{\text{eff}}(r_*) = -\frac{\mu^2}{2 h^2},$$
-
-corresponds to circular motion. Bound orbits oscillate radially between the turning points $r_p$ and $r_a$ where $\dot r = 0$; unbound orbits have a single perihelion and recede to infinity.
-
-The effective potential is not a new physical force. It is a *kinematic fiction* that allows the two-dimensional orbital motion to be analysed as a one-dimensional problem — yet another example of the ontology of mechanics being subordinated to its mathematical economy.
-
-### 4.4 Noether's Theorem
-
-Emmy Noether's 1918 theorem asserts that every continuous symmetry of the action induces a conserved quantity. Its specific instances in orbital mechanics are:
-
-| Symmetry | Conserved quantity |
-|----------|-------------------|
-| Time translation | Energy $\varepsilon$ |
-| Rotation (about any axis) | Angular momentum component $h_i$ |
-| Hidden $SO(4)$ symmetry (Kepler only) | Laplace–Runge–Lenz vector $\mathbf{A}$ |
-
-Noether's theorem is a structural statement: the conservation laws of physics are not contingent experimental discoveries but mathematical consequences of the symmetry group of the action. To understand celestial mechanics is, in this light, to understand its symmetries.
+converges quadratically for $e < 1$, since $|E_{k+1} - E_*| \leq \frac{e}{2(1-e)}|E_k - E_*|^2$. For initial guess $E_0 = M + e\sin M$ and $e < 0.6627\ldots$ (the Laplace limit), convergence is guaranteed from the first step.
 
 ---
 
-## 5. The Hamiltonian Formulation and Phase Space
+## 4. Regularization of the Kepler Problem
 
-### 5.1 The Legendre Transform
+### 4.1 The collision singularity
 
-The passage from the Lagrangian $L(q,\dot q, t)$ to the Hamiltonian $H(q,p,t)$ is a **Legendre transformation** in the velocities:
+Solutions of $\ddot{\mathbf{r}} = -\mu\mathbf{r}/r^3$ can reach $r = 0$ in finite time; the vector field is incomplete. Two standard regularizations convert the Kepler flow into a geodesic flow on a compact manifold.
 
-$$p_i = \frac{\partial L}{\partial \dot q^i}, \qquad H(q,p,t) = p_i \dot q^i - L(q,\dot q,t),$$
+### 4.2 The Moser regularization ($H < 0$)
 
-with $\dot q^i$ eliminated in favour of $p_i$. For orbital motion in Cartesian coordinates,
+**Theorem (Moser, 1970).** *The flow of the Kepler Hamiltonian on the energy surface $\{H = -k^2/2\}$, after reparametrization of time by $ds/dt = 1/r$, is conjugate to the geodesic flow on the unit tangent bundle of $S^3$ punctured at the north pole.*
 
-$$H = \frac{|\mathbf{p}|^2}{2} - \frac{\mu}{r}.$$
+The mapping is given by stereographic projection $\phi: \mathbb{R}^3 \to S^3$, $\mathbf{p} \mapsto \xi(\mathbf{p})$, lifted canonically to $T^*\mathbb{R}^3$. Under this map,
 
-The Hamiltonian is, generically, the total energy; this identification requires that the Lagrangian be time-independent and that the kinetic energy be a homogeneous quadratic form in the velocities, both of which hold here.
+$$2 r (H + k^2/2) = |\xi|^2 - 1 + (\text{constraint terms}),$$
 
-### 5.2 Canonical Equations
+so that the energy surface becomes $|\xi|^2 = 1$, and the flow becomes geodesic on $S^3$. This realises the hidden $SO(4)$ symmetry geometrically: $SO(4)$ is the isometry group of $S^3$.
 
-The Euler–Lagrange equations become Hamilton's **canonical equations**:
+### 4.3 Kustaanheimo–Stiefel regularization
 
-$$\dot q^i = \frac{\partial H}{\partial p_i}, \qquad \dot p_i = -\frac{\partial H}{\partial q^i}.$$
+For three-dimensional motion, the **Kustaanheimo–Stiefel (KS) transformation** lifts $\mathbb{R}^3$ to $\mathbb{R}^4$ via the quaternionic map
 
-These are $2n$ first-order equations on the cotangent bundle $T^*\mathcal{Q}$ — the *phase space* — rather than $n$ second-order equations on $\mathcal{Q}$. This doubling of dimension is compensated by a dramatic increase in geometric structure, which we now describe.
+$$\mathbf{r} = L(\mathbf{u})\mathbf{u}, \qquad L(\mathbf{u}) = \begin{pmatrix} u_1 & -u_2 & -u_3 & u_4 \\ u_2 & u_1 & -u_4 & -u_3 \\ u_3 & u_4 & u_1 & u_2 \\ u_4 & -u_3 & u_2 & -u_1 \end{pmatrix},$$
 
-### 5.3 Symplectic Geometry of Phase Space
+restricted to the bilinear constraint $u_1 u_4 - u_2 u_3 + u_3 u_2 - u_4 u_1 = 0$. Under the Sundman time $ds = dt/r$, the regularized Hamiltonian
 
-Phase space $M = T^*\mathcal{Q}$ carries a canonical two-form
+$$\mathcal{H}(\mathbf{u}, \mathbf{v}) = \tfrac{1}{8}|\mathbf{v}|^2 - \tfrac{1}{2}E_0|\mathbf{u}|^2 - \mu$$
 
-$$\omega = dp_i \wedge dq^i,$$
-
-the **symplectic form**. It is closed ($d\omega = 0$) and non-degenerate. The pair $(M, \omega)$ is a *symplectic manifold*, and Hamilton's equations are, in coordinate-free notation,
-
-$$\iota_{X_H}\,\omega = dH,$$
-
-where $X_H$ is the Hamiltonian vector field associated with $H$. The flow $\phi^t$ generated by $X_H$ preserves $\omega$: for every $t$,
-
-$$(\phi^t)^* \omega = \omega.$$
-
-This is the defining property of a Hamiltonian flow and the source of all that is distinctive about Hamiltonian mechanics.
-
-### 5.4 Poisson Brackets
-
-Given two functions $f, g: M \to \mathbb{R}$, their **Poisson bracket** is
-
-$$\{f,g\} = \sum_i \left(\frac{\partial f}{\partial q^i}\frac{\partial g}{\partial p_i} - \frac{\partial f}{\partial p_i}\frac{\partial g}{\partial q^i}\right).$$
-
-The evolution of any observable $f$ along the Hamiltonian flow is
-
-$$\frac{df}{dt} = \{f, H\} + \frac{\partial f}{\partial t}.$$
-
-An observable is a constant of motion precisely when $\{f, H\} = 0$ (for $f$ explicitly time-independent). The Poisson bracket algebra of conserved quantities is the infinitesimal expression of the symmetry group of the system.
-
-For the Kepler problem, the Poisson brackets of the components of $\mathbf{h}$ and $\mathbf{A}$ close on the $\mathfrak{so}(4)$ Lie algebra for bound orbits, on $\mathfrak{so}(3,1)$ for unbound, and on the Euclidean $\mathfrak{e}(3)$ for the parabolic case — three distinct symmetry types for the three conic regimes.
-
-### 5.5 Liouville's Theorem
-
-The Hamiltonian flow preserves not only $\omega$ but its top exterior power $\omega^n / n!$, the **Liouville volume form**. Thus:
-
-> **Liouville's theorem.** *The phase-space volume of any measurable region is invariant under Hamiltonian evolution.*
-
-Phase-space flow is *incompressible*. No attractor, no basin of contraction, can exist in a Hamiltonian system. This single fact separates conservative dynamics from dissipative dynamics at the deepest level and governs everything from statistical mechanics to the long-term stability of planetary orbits.
+is that of a four-dimensional harmonic oscillator of fixed energy $-\mu$. The Kepler flow on a fixed energy surface $\{H = E_0\}$ thus becomes *linear* in KS variables — the strongest possible analytic reduction of the problem.
 
 ---
 
-## 6. Action–Angle Variables and Integrability
+## 5. Lagrangian Mechanics and the Calculus of Variations
 
-### 6.1 The Hamilton–Jacobi Equation
+### 5.1 The action functional
 
-For a time-independent Hamiltonian, Hamilton's equations can be reduced to a single first-order partial differential equation, the **Hamilton–Jacobi equation**:
+Fix endpoints $q_0, q_1 \in \mathcal{Q}$ and an interval $[t_0, t_1]$. Let $\Omega = \{\gamma \in C^1([t_0,t_1], \mathcal{Q}) : \gamma(t_0) = q_0, \gamma(t_1) = q_1\}$. The **action**
 
-$$H\!\left(q^i, \frac{\partial W}{\partial q^i}\right) = E,$$
+$$S: \Omega \to \mathbb{R}, \qquad S[\gamma] = \int_{t_0}^{t_1} L(\gamma, \dot\gamma, t)\, dt,$$
 
-where $W(q, \alpha)$ — *Hamilton's characteristic function* — generates a canonical transformation to variables in which the new Hamiltonian is trivial. When $W$ separates additively in some coordinate system, $W = \sum_i W_i(q^i)$, the system is said to be *separable*, and the Hamilton–Jacobi equation reduces to a set of ordinary differential equations.
+is a $C^1$ functional on the Banach manifold $\Omega$.
 
-The Kepler problem is separable in spherical coordinates (and, remarkably, also in parabolic coordinates — a further echo of its enlarged symmetry).
+**Theorem (Euler–Lagrange).** *A curve $\gamma \in \Omega \cap C^2$ is a critical point of $S$ if and only if*
 
-### 6.2 Liouville–Arnold Integrability
+$$\frac{d}{dt}\frac{\partial L}{\partial \dot q^i} - \frac{\partial L}{\partial q^i} = 0.$$
 
-A Hamiltonian system with $n$ degrees of freedom is *integrable in the sense of Liouville* if it possesses $n$ independent conserved quantities $F_1 = H, F_2, \ldots, F_n$ that are pairwise in involution:
+### 5.2 The second variation and Jacobi fields
 
-$$\{F_i, F_j\} = 0 \quad \text{for all } i,j.$$
+The second variation of $S$ at a critical point $\gamma$ is, for variations $\eta \in T_\gamma\Omega$,
 
-The **Liouville–Arnold theorem** asserts that, under these conditions and suitable compactness assumptions, the joint level sets of the $F_i$ are diffeomorphic to $n$-dimensional tori $\mathbb{T}^n$, and there exist coordinates $(\mathbf{I}, \boldsymbol{\varphi})$ — the **action–angle variables** — in which
+$$\delta^2 S[\gamma](\eta, \eta) = \int_{t_0}^{t_1}\left[\eta^T\!\Big(\frac{d^2 L}{d\dot q\, d\dot q}\Big)\ddot\eta + 2 \eta^T\!\Big(\frac{d^2 L}{d\dot q\, dq}\Big)\dot\eta + \eta^T\!\Big(\frac{d^2 L}{dq\, dq}\Big)\eta\right] dt.$$
 
-$$H = H(\mathbf{I}), \qquad \dot{I}_i = 0, \qquad \dot{\varphi}_i = \omega_i(\mathbf{I}) \equiv \frac{\partial H}{\partial I_i}.$$
+A variation $\eta$ for which $\delta^2 S[\gamma](\eta, \cdot) = 0$ is a **Jacobi field**; it satisfies a second-order linear ODE, the Jacobi equation. A point $\gamma(t_*) \in \mathcal{Q}$ is **conjugate** to $\gamma(t_0)$ along $\gamma$ if there exists a non-zero Jacobi field vanishing at both $t_0$ and $t_*$.
 
-The motion is a linear flow on a torus: quasi-periodic with frequencies $\omega_i$.
+**Theorem (Morse index).** *The Morse index of $\gamma$ — the dimension of the maximal subspace on which $\delta^2 S[\gamma]$ is negative definite — equals the number of points in $(t_0, t_1)$ conjugate to $\gamma(t_0)$, counted with multiplicity.*
 
-### 6.3 The Kepler Problem in Delaunay Variables
+For the Kepler problem, the half-period of radial oscillation separates conjugate points; bound orbits have Morse index $2k$ after $k$ half-revolutions.
 
-For the Kepler problem, a canonical choice of action–angle variables is that of **Delaunay**:
+### 5.3 Noether's theorem
 
-| Action | Conjugate angle | Interpretation |
-|--------|-----------------|----------------|
-| $L = \sqrt{\mu a}$ | $\ell$ (mean anomaly) | Orbital size |
-| $G = L\sqrt{1 - e^2}$ | $g = \omega$ (argument of periapsis) | Angular momentum |
-| $H = G\cos i$ | $h = \Omega$ (longitude of ascending node) | Component of $\mathbf{h}$ along a fixed axis |
+Let a one-parameter group $\phi_\varepsilon$ of diffeomorphisms of $\mathcal{Q}$ lift to $T\mathcal{Q}$ so that $L \circ \phi_\varepsilon^{T\mathcal{Q}} = L$. Let $X = \partial_\varepsilon|_{\varepsilon=0}\phi_\varepsilon$ be its infinitesimal generator.
 
-The Hamiltonian, expressed in these variables, depends only on $L$:
+**Theorem (Noether, 1918).** *The function*
 
-$$H = -\frac{\mu^2}{2 L^2}.$$
+$$I = \frac{\partial L}{\partial \dot q^i} X^i(q)$$
 
-Since $H$ is independent of $G$ and $H$, the frequencies $\omega_G = \omega_H = 0$: two of the three angles are constants of motion. Only $\ell$ advances linearly in time. This is the dynamical statement of the closedness of Keplerian orbits. The full three-dimensional phase torus collapses to a one-dimensional closed curve — again, a consequence of the hidden $SO(4)$ symmetry.
+*is constant along solutions of the Euler–Lagrange equations.*
 
-### 6.4 Integrability as Structural Fragility
-
-The class of integrable Hamiltonian systems is extraordinarily small. Generic perturbations of an integrable system are *not* integrable. Integrability is a structurally fragile property — a measure-zero condition in any reasonable sense — and its prevalence in the examples that fill textbooks reflects the historical selection of tractable problems rather than the generic behaviour of dynamical systems. The Kepler problem is exceptional, not typical.
-
-This realisation — that most Hamiltonian systems are non-integrable and exhibit chaotic behaviour — is the conceptual revolution effected by Poincaré at the end of the nineteenth century. It is the subject of the next two sections.
+The momentum map construction of §12 is the global, coordinate-free formulation of this theorem.
 
 ---
 
-## 7. Perturbation Theory and the Collapse of Integrability
+## 6. Hamiltonian Mechanics and Symplectic Geometry
 
-### 7.1 The Perturbed Hamiltonian
+### 6.1 The canonical symplectic form
 
-A nearly-Keplerian system has a Hamiltonian of the form
+On $T^*\mathcal{Q}$ with local coordinates $(q^i, p_i)$, the **tautological one-form** is $\theta = p_i\, dq^i$; the **canonical symplectic form** is $\omega = -d\theta = dq^i \wedge dp_i$.
 
-$$H(\mathbf{I}, \boldsymbol{\varphi}; \varepsilon) = H_0(\mathbf{I}) + \varepsilon H_1(\mathbf{I}, \boldsymbol{\varphi}),$$
+**Theorem (Darboux).** *Let $(M, \omega)$ be a symplectic $2n$-manifold. For every $x \in M$, there exist coordinates $(q^i, p_i)$ on a neighbourhood of $x$ in which $\omega = dq^i \wedge dp_i$.*
 
-where $H_0$ is integrable (the pure Kepler Hamiltonian), $H_1$ is a small perturbation (Earth's oblateness, atmospheric drag, lunisolar gravity, relativistic corrections), and $\varepsilon \ll 1$ is a dimensionless bookkeeping parameter. Classical perturbation theory seeks a canonical transformation $(\mathbf{I}, \boldsymbol{\varphi}) \to (\mathbf{I}', \boldsymbol{\varphi}')$ under which, order by order in $\varepsilon$, the new Hamiltonian depends only on the new actions:
+All symplectic manifolds are thus locally equivalent; symplectic geometry has no local invariants beyond dimension. Global invariants — Gromov width, symplectic capacities, Floer homology — belong to symplectic topology and are beyond our present scope.
 
-$$H'(\mathbf{I}') = H_0(\mathbf{I}') + \varepsilon \langle H_1 \rangle(\mathbf{I}') + \varepsilon^2 H_2'(\mathbf{I}') + \cdots,$$
+### 6.2 Hamiltonian vector fields and Poisson brackets
 
-where $\langle \cdot \rangle$ denotes the average over the unperturbed angles.
+For $H \in C^\infty(M)$, the **Hamiltonian vector field** $X_H$ is defined by $\iota_{X_H}\omega = dH$. The flow $\phi^t_H$ satisfies $\mathcal{L}_{X_H}\omega = 0$ (Cartan's formula), so every Hamiltonian flow is a symplectomorphism.
 
-### 7.2 Small Divisors and the Lindstedt Series
+The **Poisson bracket** is
 
-The generating function of the canonical transformation, expanded in Fourier modes of the unperturbed angles, contains denominators of the form
+$$\{f, g\} = \omega(X_f, X_g) = X_f(g) = -X_g(f).$$
 
-$$\mathbf{k} \cdot \boldsymbol{\omega}_0(\mathbf{I}), \qquad \mathbf{k} \in \mathbb{Z}^n \setminus \{0\}.$$
+It satisfies Jacobi's identity $\{f, \{g, h\}\} + \{g, \{h, f\}\} + \{h, \{f, g\}\} = 0$, making $(C^\infty(M), \{\cdot, \cdot\})$ a Lie algebra; this Lie algebra is an extension of the algebra of Hamiltonian vector fields by the constants.
 
-These denominators, the **small divisors**, vanish whenever the unperturbed frequencies $\boldsymbol{\omega}_0$ are *commensurable* — that is, satisfy a resonance condition $\mathbf{k} \cdot \boldsymbol{\omega}_0 = 0$ for some non-zero integer vector $\mathbf{k}$. For frequencies arbitrarily close to resonance, the divisors become arbitrarily small, and the perturbation series need not converge.
+### 6.3 Liouville's theorem
 
-This observation, made by Poincaré, undermined the nineteenth-century programme of proving the stability of the solar system by power-series methods. Poincaré showed, more strongly, that *in general the perturbation series for a non-integrable system do not converge*, even when each individual term is finite.
+**Theorem (Liouville).** *The Hamiltonian flow preserves the Liouville volume form $\Omega_L = \omega^n / n!$.*
 
-### 7.3 Secular Perturbations and Averaging
+*Proof.* $\mathcal{L}_{X_H}\Omega_L = \mathcal{L}_{X_H}(\omega^n/n!) = \omega^{n-1} \wedge \mathcal{L}_{X_H}\omega / (n-1)! = 0$, since $\mathcal{L}_{X_H}\omega = 0$. $\square$
 
-Though the full perturbation series may fail to converge, the first-order averaged equations
+### 6.4 The Poincaré recurrence theorem
 
-$$\dot{\mathbf{I}}' = 0, \qquad \dot{\boldsymbol{\varphi}}' = \boldsymbol{\omega}_0(\mathbf{I}') + \varepsilon\,\frac{\partial \langle H_1 \rangle}{\partial \mathbf{I}'}$$
+**Theorem (Poincaré, 1890).** *Let $\phi: M \to M$ preserve a finite measure $\mu$, and let $A \subset M$ be $\mu$-measurable with $\mu(A) > 0$. Then $\mu$-almost every $x \in A$ returns to $A$ infinitely often under iteration of $\phi$.*
 
-yield a valuable qualitative picture. The actions are conserved to first order; only the angles drift. When expressed in orbital elements, this is the **Laplace–Lagrange secular theory**, which predicts the slow precession of longitudes of ascending node and arguments of periapsis while leaving $a$ and $e$ unchanged at first order.
-
-For Earth satellites perturbed by $J_2$, the secular rates
-
-$$\dot\Omega = -\frac{3}{2}\, n J_2 \left(\frac{R_\oplus}{p}\right)^{\!2}\cos i,\qquad
-\dot\omega = \frac{3}{4}\, n J_2 \left(\frac{R_\oplus}{p}\right)^{\!2}(5\cos^2 i - 1)$$
-
-give, for instance, the inclination $i_{\text{sun-sync}} \approx 97°\text{–}99°$ at which $\dot\Omega$ matches Earth's mean motion about the Sun — the *sun-synchronous* regime. The critical inclination $\cos^2 i_c = 1/5$ (i.e. $i_c \approx 63.4°$) at which $\dot\omega = 0$ is the Molniya inclination — an artefact of mathematical symmetry exploited operationally for high-latitude communications.
-
-### 7.4 Poincaré's Theorem on Non-Existence of Integrals
-
-The culminating negative result of classical perturbation theory is Poincaré's theorem (1892):
-
-> *A generic analytic perturbation of an integrable analytic Hamiltonian admits no additional analytic integral of motion, beyond the Hamiltonian itself.*
-
-Integrals, when they exist, are special. For the $n$-body problem with $n \geq 3$, the ten classical integrals (energy, linear momentum, angular momentum, centre-of-mass motion) exhaust the analytic conserved quantities, and the motion is generically non-integrable. The three-body problem, which Poincaré studied for his prize memoir of 1890, became the paradigmatic example of a system simple enough to be stated and intractable enough to resist complete analysis.
+In a bounded energy surface of a Hamiltonian system, the induced volume measure is finite; hence almost every trajectory is recurrent. This statement, rigorously proved, is strong enough that its combination with the second law of thermodynamics requires care: the two are not contradictory, but the recurrence times are doubly exponential in the number of degrees of freedom and astronomically larger than cosmological timescales.
 
 ---
 
-## 8. Chaos, KAM Theory, and the Three-Body Problem
+## 7. The Hamilton–Jacobi Equation and Action–Angle Variables
 
-### 8.1 Sensitive Dependence on Initial Conditions
+### 7.1 The Hamilton–Jacobi equation
 
-A dynamical system exhibits **sensitive dependence on initial conditions** when nearby trajectories diverge exponentially in time:
+Seek a canonical transformation $(q, p) \mapsto (Q, P)$ generated by $W(q, P)$ via $p_i = \partial W/\partial q^i$, $Q^i = \partial W/\partial P_i$, such that the new Hamiltonian is $K = E(P)$. The condition is the **Hamilton–Jacobi equation**:
 
-$$|\delta \mathbf{z}(t)| \sim |\delta \mathbf{z}(0)|\, e^{\lambda t}, \qquad \lambda > 0,$$
+$$H\!\left(q, \frac{\partial W}{\partial q}\right) = E.$$
 
-where $\lambda$ is the largest Lyapunov exponent. Sensitive dependence is the technical core of what is popularly called *chaos*. It does not contradict determinism: the evolution is entirely fixed by the initial condition. It limits predictability: finite-precision knowledge of the initial condition decays, at the Lyapunov rate, to vacuity.
+A *complete integral* $W(q, \alpha_1, \ldots, \alpha_n)$ with $\det(\partial^2 W/\partial q \partial \alpha) \neq 0$ provides $n$ independent constants of motion $P_i = \alpha_i$, and their conjugates $Q^i = \partial W/\partial \alpha_i - t\,\partial E/\partial \alpha_i$ are constant.
 
-The three-body problem exhibits sensitive dependence over large regions of its phase space. A one-metre uncertainty in the initial position of a Jupiter-family comet grows, over $10^5$ years, to a position uncertainty comparable to the orbital radius itself. Prediction, in any strict sense, becomes impossible. The universe is deterministic; it is not, in general, predictable.
+### 7.2 Separability and Stäckel's theorem
 
-### 8.2 Poincaré Sections and the Homoclinic Tangle
+The Hamilton–Jacobi equation is *separable in orthogonal coordinates* $(q^1, \ldots, q^n)$ if $W = \sum_i W_i(q^i, \alpha)$. Stäckel's theorem gives necessary and sufficient conditions on $g_{ij}$ and $U$ for separability. For the Kepler problem, separability holds in spherical, parabolic, and spheroidal coordinates — a superintegrable system, reflecting the $SO(4)$ symmetry of §3.3.
 
-To visualise the flow of a Hamiltonian system with two degrees of freedom, one fixes an energy surface (three-dimensional) and intersects trajectories with a transverse surface (two-dimensional). The resulting discrete map is a **Poincaré section**. For integrable systems, the section consists of closed curves — the traces of invariant tori. For non-integrable systems, a far richer picture emerges: some tori persist, others break up into island chains, and in the neighbourhood of hyperbolic periodic orbits, the stable and unstable manifolds intersect *transversely*, creating the infinitely self-intersecting structure Poincaré called the **homoclinic tangle**.
+### 7.3 Action–angle variables
 
-Of this structure Poincaré wrote:
+On an integrable system, the **action variables** are defined by
 
-> *One is struck by the complexity of this figure, which I shall not even attempt to draw. Nothing is better suited to give us an idea of the complexity of the three-body problem, and in general of all problems of dynamics in which there is no uniform integral.*
-> — *Méthodes Nouvelles de la Mécanique Céleste*, Vol. III, §397 (1899)
+$$I_i = \frac{1}{2\pi}\oint_{\gamma_i} p\,dq,$$
 
-The homoclinic tangle is the first mathematical object in the history of physics that *resisted being drawn*. It is the geometric substrate of chaos.
+with $\gamma_i$ the $i$-th fundamental cycle of the invariant torus. The conjugate **angle variables** $\varphi_i$ are defined modulo $2\pi$ and evolve linearly:
 
-### 8.3 The KAM Theorem
+$$\dot I_i = 0, \qquad \dot\varphi_i = \omega_i(I) = \frac{\partial H}{\partial I_i}.$$
 
-Despite the generic non-integrability of perturbed Hamiltonian systems, not all structure is destroyed by perturbation. The **Kolmogorov–Arnold–Moser theorem** (Kolmogorov 1954, Arnold 1963, Moser 1962) asserts, under suitable non-degeneracy and smoothness hypotheses:
+### 7.4 Delaunay variables for the Kepler problem
 
-> *For sufficiently small perturbations of a non-degenerate integrable Hamiltonian, a set of invariant tori of positive Lebesgue measure survives, on which the perturbed flow is conjugate to a linear flow with Diophantine frequency vector.*
+The canonical action–angle variables of the Kepler problem are
 
-More precisely: tori whose frequencies $\boldsymbol{\omega}$ satisfy a Diophantine condition
+$$\begin{array}{lll}
+L = \sqrt{\mu a}, & \ell = M, & \text{(mean anomaly)}\\
+G = L\sqrt{1-e^2}, & g = \omega, & \text{(argument of periapsis)}\\
+H = G\cos i, & h = \Omega, & \text{(longitude of ascending node)}
+\end{array}$$
 
-$$|\mathbf{k} \cdot \boldsymbol{\omega}| \geq \frac{\gamma}{|\mathbf{k}|^\tau}, \qquad \mathbf{k} \in \mathbb{Z}^n \setminus \{0\}$$
-
-for some $\gamma, \tau > 0$, persist under perturbations whose size is bounded by a function of $\gamma, \tau$, and the system's regularity. The measure of the non-persisting tori vanishes as $\varepsilon \to 0$ like $\sqrt{\varepsilon}$.
-
-The KAM theorem restores a form of stability in the midst of chaos. The phase space of a perturbed integrable system is a Cantor-like interleaving of surviving tori (on which motion is quasi-periodic) and resonance zones (in which motion is chaotic). Neither structure alone describes the system; their coexistence is its essential character.
-
-### 8.4 Arnold Diffusion and Nekhoroshev Stability
-
-For $n \geq 3$ degrees of freedom, the surviving KAM tori do not separate the phase space into disjoint regions; trajectories between the tori can, in principle, wander globally over the energy surface. This phenomenon is **Arnold diffusion**, demonstrated by Arnold in 1964 for a specific example and believed to be generic. Its timescales in realistic systems are, however, astronomically long.
-
-**Nekhoroshev's theorem** (1977) complements KAM theory with a quantitative statement valid on *any* initial condition (not merely those on surviving tori): for analytic perturbations of a steep integrable Hamiltonian, the actions are constant up to a small deviation,
-
-$$|\mathbf{I}(t) - \mathbf{I}(0)| \leq C \varepsilon^{b}, \qquad |t| \leq T_* \equiv T_0 \exp\!\left(\varepsilon_0/\varepsilon\right)^{a},$$
-
-for exponents $a, b > 0$ depending on the number of degrees of freedom. Instability is possible but exponentially slow. The solar system, whose Lyapunov time is $\sim 10^7$ years and whose expected lifetime against planetary ejection is $\sim 10^{10}$ years, lives within the Nekhoroshev regime: locally chaotic, globally stable on cosmological timescales.
-
-### 8.5 The Philosophical Residue
-
-The discovery of deterministic chaos dissolved a metaphysical assumption that had been nearly invisible before Poincaré: that determinism implies predictability. Laplace's demon, who could deduce from the present state of the universe its entire past and future, was imagined to compute; the discovery of chaos reveals that, even granting perfect knowledge of the laws, finite computational precision suffices to defeat the demon beyond the Lyapunov horizon. Determinism is metaphysical; predictability is epistemological; they are no longer, after Poincaré, the same question.
+with Hamiltonian $H_{\text{Kep}} = -\mu^2/(2 L^2)$. Since $H_{\text{Kep}}$ depends only on $L$, the frequencies are $(\omega_L, \omega_G, \omega_H) = (n, 0, 0)$: the system is **degenerate** in the Kolmogorov sense, having fewer independent frequencies than degrees of freedom. This degeneracy is the Hamiltonian expression of the closedness of bound Keplerian orbits (§3.3) and is the principal technical obstruction to naïve application of KAM theory to Earth-satellite dynamics.
 
 ---
 
-## 9. Geometric Mechanics and Symmetry Reduction
+## 8. Liouville–Arnold Integrability
 
-### 9.1 The Configuration Manifold
+### 8.1 Statement
 
-Classical mechanics takes its fullest geometric form when the configuration space is not assumed to be a Euclidean vector space but a smooth manifold $\mathcal{Q}$. For a single particle in three dimensions, $\mathcal{Q} = \mathbb{R}^3$; for a particle constrained to a sphere, $\mathcal{Q} = S^2$; for a rigid body, $\mathcal{Q} = SO(3)$; for the Kepler problem restricted to bound orbits, the configuration manifold is $\mathbb{R}^3 \setminus \{0\}$.
+**Theorem (Liouville–Arnold).** *Let $(M^{2n}, \omega)$ be a symplectic manifold, and let $F_1 = H, F_2, \ldots, F_n \in C^\infty(M)$ satisfy*
 
-The Lagrangian is a function $L: T\mathcal{Q} \to \mathbb{R}$ on the *tangent bundle*; the Hamiltonian is a function $H: T^*\mathcal{Q} \to \mathbb{R}$ on the *cotangent bundle*. The Legendre transform is a map between the two. Nothing in this formulation privileges any coordinate system; the geometry is intrinsic.
+- *$\{F_i, F_j\} = 0$ for all $i, j$ (involution);*
+- *$dF_1, \ldots, dF_n$ are linearly independent on $M_f = \{F_i = f_i\}$;*
+- *$M_f$ is compact and connected.*
 
-### 9.2 Momentum Maps and Symmetry Reduction
+*Then $M_f$ is diffeomorphic to the torus $\mathbb{T}^n$, and there exist action–angle coordinates $(I, \varphi) \in U \times \mathbb{T}^n$ on a neighbourhood of $M_f$, in which $\omega = dI \wedge d\varphi$ and $H = H(I)$.*
 
-Let a Lie group $G$ act on $\mathcal{Q}$ by diffeomorphisms. The lifted action on $T^*\mathcal{Q}$ preserves the symplectic form, and by a construction due to Souriau and Kostant, there is a **momentum map** $\mathbf{J}: T^*\mathcal{Q} \to \mathfrak{g}^*$ into the dual of the Lie algebra, whose components are conserved along the flow of any $G$-invariant Hamiltonian.
+The proof proceeds by showing that the commuting Hamiltonian flows $\phi^{t_1}_{F_1}, \ldots, \phi^{t_n}_{F_n}$ define a locally free $\mathbb{R}^n$-action on $M_f$; compactness forces the isotropy to be a rank-$n$ lattice, so $M_f = \mathbb{R}^n / \Lambda \cong \mathbb{T}^n$.
 
-For spatial rotations $G = SO(3)$, the momentum map is the familiar angular momentum vector. Noether's theorem is the infinitesimal version of this construction.
+### 8.2 Resonance and non-degeneracy
 
-**Marsden–Weinstein reduction** (1974) uses the momentum map to eliminate symmetry. Fixing the momentum at a value $\mu \in \mathfrak{g}^*$ and quotienting by the isotropy subgroup yields a *reduced phase space*
+The map $I \mapsto \omega(I) = \partial H/\partial I$ is the **frequency map**. A value $I_*$ is **resonant** if $\mathbf{k} \cdot \omega(I_*) = 0$ for some $\mathbf{k} \in \mathbb{Z}^n \setminus \{0\}$; otherwise **non-resonant**. The system is **non-degenerate** (Kolmogorov) at $I_*$ if $\det(\partial \omega/\partial I)(I_*) \neq 0$, and **isoenergetically non-degenerate** (Arnold) if the bordered Hessian of $H$ with respect to $I$ is non-singular on the energy surface.
 
-$$M_\mu = \mathbf{J}^{-1}(\mu) / G_\mu,$$
+### 8.3 The Kepler problem is degenerate
 
-itself symplectic, whose dimension is $\dim M - \dim G - \dim G_\mu$. For the Kepler problem, reduction by rotations yields a two-dimensional reduced phase space in which the radial motion occurs: the effective potential analysis of §4.3 is the coordinate expression of this reduction.
-
-### 9.3 The Geometric Phase
-
-An orbital trajectory that returns to its initial point in the reduced space need not return to its initial point in the full space. The residual displacement — the **geometric phase** or **Hannay angle** — is a purely geometric quantity, independent of the speed at which the circuit is traversed. For adiabatic cycles of a Hamiltonian system, the Hannay angle is the classical analogue of Berry's quantum geometric phase.
-
-In celestial mechanics, the geometric phase manifests as, e.g., the slow rotation of the orbital plane of a satellite as Earth traces its annual path, even in the absence of direct solar gravitational torque. It is a reminder that *the composition of reversible motions is, in general, not reversible* — a structural, rather than dissipative, source of irreversibility.
+From $H_{\text{Kep}} = -\mu^2/(2L^2)$, $\partial^2 H/\partial I_j \partial I_k = 0$ for $(j,k) \neq (1,1)$; the frequency map has rank $1$. The Kepler problem is *completely* degenerate — the strongest possible degeneracy. Perturbation theory for near-Keplerian systems proceeds via the **secular Hamiltonian** obtained by averaging over $\ell$, which restores generic non-degeneracy in the variables $(G, H, g, h)$ after the fast angle has been removed.
 
 ---
 
-## 10. General Relativistic Corrections
+## 9. Classical Perturbation Theory
 
-### 10.1 From Force to Geometry
+### 9.1 Setup
 
-In general relativity, gravitation is not a force. A free-falling body follows a *geodesic* of a curved Lorentzian manifold, the spacetime $(M, g)$, whose metric $g_{\mu\nu}$ is determined by the distribution of matter and energy through Einstein's field equations,
+Let $H = H_0(I) + \varepsilon H_1(I, \varphi)$, with $H_1$ $2\pi$-periodic in $\varphi$, analytic on a complex strip
 
-$$R_{\mu\nu} - \tfrac{1}{2} R\, g_{\mu\nu} + \Lambda\, g_{\mu\nu} = \frac{8\pi G}{c^4}\, T_{\mu\nu}.$$
+$$D_{r,s} = \{|\Im \varphi_i| < s, \ \mathrm{dist}(I, D) < r\}.$$
 
-The Newtonian picture — bodies moving through flat space under the influence of an instantaneous force — is recovered as the weak-field, slow-motion limit of this theory. Orbits are not the paths carved out by a mysterious attraction; they are the straightest lines that can be drawn in a geometry that is, itself, bent by mass.
+Expand
 
-### 10.2 The Schwarzschild Metric and Its Geodesics
+$$H_1(I, \varphi) = \sum_{\mathbf{k} \in \mathbb{Z}^n} \hat H_1^\mathbf{k}(I)\, e^{i\mathbf{k}\cdot\varphi}.$$
 
-Outside a static, spherically symmetric body of mass $M$, the spacetime metric is the **Schwarzschild solution**:
+We seek a canonical transformation, generated by $W(I', \varphi) = I'\cdot\varphi + \varepsilon S(I', \varphi) + O(\varepsilon^2)$, that removes the angle-dependence to first order in $\varepsilon$.
 
-$$ds^2 = -\left(1 - \frac{r_s}{r}\right)c^2\,dt^2 + \left(1 - \frac{r_s}{r}\right)^{-1}dr^2 + r^2(d\theta^2 + \sin^2\theta\, d\phi^2),$$
+### 9.2 The homological equation
 
-where $r_s = 2GM/c^2$ is the **Schwarzschild radius** — $\sim 3$ km for the Sun, $\sim 9$ mm for Earth.
+The first-order condition is
 
-Geodesics in this metric deviate from Keplerian orbits by corrections of order $r_s/r$. To leading post-Newtonian order, the principal observable is the anomalous precession of the periapsis:
+$$\omega_0(I') \cdot \partial_\varphi S = \langle H_1 \rangle(I') - H_1(I', \varphi),$$
 
-$$\Delta\omega_{\text{GR}} = \frac{6\pi G M}{c^2\, a(1 - e^2)} \quad \text{per orbit}.$$
+where $\langle H_1 \rangle = \hat H_1^{\mathbf{0}}$ is the average. Fourier-expanding,
 
-For Mercury, this yields $\sim 43$ arcseconds per century — the celebrated residual that classical perturbation theory could not account for, and whose explanation by Einstein in 1915 constituted the first empirical triumph of general relativity.
+$$S(I', \varphi) = \sum_{\mathbf{k} \neq 0} \frac{\hat H_1^\mathbf{k}(I')}{i\, \mathbf{k}\cdot\omega_0(I')}\, e^{i\mathbf{k}\cdot\varphi}.$$
 
-### 10.3 The Conceptual Inversion
+The denominators $\mathbf{k}\cdot\omega_0$ are the **small divisors**. Their accumulation at resonance is the principal obstruction to convergence.
 
-The general-relativistic reinterpretation of gravity is not a quantitative correction to a pre-existing theory but a radical reconceptualisation. Force and potential do not appear in the fundamental equations; their roles are taken over by the components of the metric tensor. What we had previously thought of as the *cause* of orbital motion — the gravitational force — has been replaced by its *locus* — the geometry of spacetime. The orbit was always geometry; Newton had merely translated that geometry into the vocabulary of his age.
+### 9.3 Secular dynamics for $J_2$-perturbed orbits
 
-This is the deepest lesson of the arc from Kepler to Einstein: that the mathematical structure of a physical theory is not a formalisation of a pre-existing physical intuition, but a source of intuition in its own right, which the history of the subject gradually uncovers.
+Averaging the $J_2$ Hamiltonian
 
----
+$$H_{J_2} = -\frac{\mu J_2 R_\oplus^2}{2 r^3}\left(3\sin^2\Phi - 1\right), \qquad \Phi = \text{latitude},$$
 
-## 11. Discretisation as an Epistemological Act
+over the mean anomaly gives $\langle H_{J_2}\rangle$ depending only on $(L, G, H)$. Hamilton's equations then yield the Brouwer secular rates:
 
-### 11.1 The Gap Between Continuum and Computation
+$$\begin{aligned}
+\dot\Omega &= -\frac{3}{2}\, n\, J_2\left(\frac{R_\oplus}{p}\right)^{\!2}\cos i, \\
+\dot\omega &= \phantom{-}\frac{3}{4}\, n\, J_2\left(\frac{R_\oplus}{p}\right)^{\!2}(5\cos^2 i - 1), \\
+\dot M_0 &= n + \frac{3}{4}\, n\, J_2\left(\frac{R_\oplus}{p}\right)^{\!2}\sqrt{1-e^2}\,(3\cos^2 i - 1),
+\end{aligned}$$
 
-The orbit, as a mathematical object, is a smooth curve — a solution of a differential equation in continuous time. Any computational simulation, however refined, is a sequence of discrete samples $(\mathbf{r}_n, \mathbf{v}_n)$ produced by an integrator that approximates the flow over finite time steps. The question thereby arises: in what sense, and under what conditions, does a discrete sequence of computed states represent a continuous orbital trajectory?
+where $p = a(1-e^2)$. The critical inclination $\cos^2 i_c = 1/5$, $i_c \approx 63.435°$, annihilates $\dot\omega$; the sun-synchronous condition $\dot\Omega = 360°/\mathrm{yr}$ determines $i_{\text{SSO}}(a, e)$ implicitly.
 
-### 11.2 Symplectic Integrators
+### 9.4 Divergence in general
 
-A generic numerical integrator applied to Hamilton's equations produces a discrete map $\Phi_h: M \to M$ that approximates the true flow $\phi^h$. For most integrators, including classical Runge–Kutta methods, $\Phi_h$ does *not* preserve the symplectic form $\omega$: the numerical flow has an artificial dissipation or excitation that manifests, in orbital mechanics, as spurious secular drift in energy or angular momentum.
+**Theorem (Poincaré, 1892).** *For a generic real-analytic perturbation of a non-degenerate integrable Hamiltonian, the formal Lindstedt series*
 
-A **symplectic integrator** is a discretisation $\Phi_h$ that preserves $\omega$ exactly:
+$$H_0 + \varepsilon \langle H_1\rangle + \varepsilon^2 H_2' + \cdots$$
 
-$$\Phi_h^* \omega = \omega.$$
+*diverges. Generically, no additional analytic integral of motion exists beyond $H$ itself.*
 
-Such integrators — leapfrog, Störmer–Verlet, higher-order variants due to Yoshida — possess a **modified Hamiltonian** $\tilde H = H + h^p H_1 + h^{p+1} H_2 + \cdots$ that they conserve exactly (in the sense of a formal series). Over astronomically long timescales, symplectic integrators preserve the qualitative structure of the flow — the existence of invariant tori, the form of the Poincaré sections — in a way that non-symplectic methods do not. They do not produce the *true* trajectory, but they produce the true *kind* of trajectory.
-
-### 11.3 Shadowing
-
-A deeper sense in which a numerical trajectory represents a true one is the **shadowing property**. A discrete sequence $(\mathbf{z}_n)$ is said to be *shadowed* by a true orbit $\gamma(t)$ if, for all $n$,
-
-$$|\mathbf{z}_n - \gamma(n h)| < \delta$$
-
-for some small $\delta$. Shadowing theorems — for hyperbolic systems (Anosov, 1967; Bowen, 1975) and, in weaker forms, for more general dynamical systems — guarantee that any sufficiently accurate numerical trajectory lies close to *some* true trajectory of the system, even if it does not closely track the one that issues from the nominal initial condition.
-
-This is an epistemologically remarkable statement. The numerical trajectory need not be the true future of the system; it need only be *a* true future of *some* nearby system. In a chaotic regime, this is often the best that can be said — and it is, in a precise sense, enough.
-
-### 11.4 What Is the Orbit of a Simulation?
-
-We may now return to the question raised at the opening of this section. The orbit of a simulated body is neither a trajectory in physical space (it is not physical), nor a solution of a differential equation (no differential equation was solved). It is a discrete sequence of floating-point numbers related to the continuous mathematical orbit by a chain of approximations: the physical model is itself approximate; the integrator is an approximation of the model; floating-point arithmetic is an approximation of the integrator.
-
-That this chain of approximations nevertheless produces reliable predictions of the behaviour of real spacecraft is not self-evident. It is made possible by three conspiring facts: the smoothness of the differential equations in question, the existence of symplectic integrators that preserve structural invariants, and the shadowing property that supplies a true orbit in the vicinity of the computed one. The success of celestial-mechanical computation is, in the last analysis, a theorem of dynamical systems theory.
+Convergence is restored on a Cantor set of initial conditions by KAM theory (§10); exponentially long action stability on an open set is supplied by Nekhoroshev theory (§11).
 
 ---
 
-## 12. Closing Meditations
+## 10. KAM Theory
 
-### 12.1 The Orbit as Mathematical and Physical Object
+### 10.1 Diophantine frequencies
 
-We began with three candidate ontologies for the orbit: trajectory, integral curve, symplectic leaf. The course of this treatise has been an argument that each is correct at its appropriate level of description, and that the progress of celestial mechanics can be read as a gradual ascent through these levels. The orbit, as a physical phenomenon, is the same in every century; the orbit, as a mathematical object, has changed as often as our understanding of mathematics itself.
+A frequency vector $\omega \in \mathbb{R}^n$ is **Diophantine** with exponents $(\gamma, \tau)$, $\gamma > 0$, $\tau \geq n-1$, if
 
-### 12.2 The Hierarchy of Reformulations
+$$|\mathbf{k} \cdot \omega| \geq \frac{\gamma}{|\mathbf{k}|^\tau} \quad \text{for all } \mathbf{k} \in \mathbb{Z}^n \setminus \{0\}.$$
 
-Each reformulation we have encountered — Lagrangian to Hamiltonian, symplectic to geometric, Newtonian to relativistic — has two simultaneous aspects. Technically, it reveals structure invisible at the previous level: the symplectic form, the momentum map, the metric tensor. Philosophically, it dissolves a concept that previously seemed indispensable: the notion of force, the distinction between configuration and phase, the separation of gravity from geometry. Each generation of mechanics dissolves the ontology of its predecessor into a deeper mathematical unity.
+Denote the set of such $\omega$ by $\Omega_{\gamma, \tau}$. For fixed $\tau > n - 1$, the measure of $\Omega_{\gamma, \tau} \cap B_R$ satisfies
 
-It is reasonable to suppose that the present formulation will, in turn, be dissolved by what is to come.
+$$|\mathbb{R}^n \setminus \Omega_{\gamma, \tau}| \cap B_R \leq C_\tau\, \gamma\, R^{n-1},$$
 
-### 12.3 The Two-Body Problem as a Unity in a Plural World
+so that almost every $\omega$ is Diophantine for some $\gamma$.
 
-The $1/r$ potential appears in celestial mechanics and in atomic physics, in the classical Kepler problem and in the quantum hydrogen atom, with the same symmetry group $SO(4)$ in both. A cosmos that permits this coincidence is a cosmos structured by mathematical necessity as much as by physical contingency. The two-body problem is not merely a useful approximation; it is a locus at which the unity of mathematical structure asserts itself across otherwise separate domains of physics.
+### 10.2 The KAM theorem
 
-### 12.4 On the Limits of the Subject
+**Theorem (Kolmogorov 1954, Arnold 1963, Moser 1962).** *Let $H_0(I)$ be real-analytic on $D \subset \mathbb{R}^n$ with $\det(\partial^2 H_0/\partial I^2) \neq 0$. Let $H_\varepsilon = H_0 + \varepsilon H_1$ with $H_1$ real-analytic on $D \times \mathbb{T}^n$. Fix $\gamma, \tau$ with $\tau > n-1$. There exist $\varepsilon_0 > 0$ and $C > 0$ depending on $H_0$, $\|H_1\|$, $\gamma$, $\tau$ such that for all $|\varepsilon| < \varepsilon_0$:*
 
-Celestial mechanics, as a classical theory, is complete. Its axioms — Newtonian gravity, or its general-relativistic generalisation; the Hamiltonian formalism; the geometry of symplectic manifolds — are fixed. What remains is not foundational revision but continued exploration: the cataloguing of special solutions (periodic orbits, libration points, homoclinic connections), the characterisation of chaotic regimes, the bringing to bear of new mathematical techniques on old problems.
+*(i) There is a Cantor-like set $K_\varepsilon \subset D$ of positive Lebesgue measure, $|D \setminus K_\varepsilon| \leq C\sqrt{\varepsilon}$, with $K_\varepsilon \subset \omega_0^{-1}(\Omega_{\gamma,\tau})$;*
 
-And yet the discipline continues to produce surprises. The discovery, in 1993, of the figure-eight three-body orbit (Moore; Chenciner and Montgomery); the identification, in the last two decades, of low-energy transfer trajectories exploiting invariant manifolds of libration-point orbits; the ongoing study of Arnold diffusion in realistic solar-system models — each demonstrates that a theory may be foundationally complete and mathematically inexhaustible at once.
+*(ii) For each $I_0 \in K_\varepsilon$, there is an embedding $\iota_{I_0}: \mathbb{T}^n \hookrightarrow D \times \mathbb{T}^n$, real-analytic in $\varphi$ and $C^\infty$-Whitney in $I_0$, whose image is invariant under the Hamiltonian flow of $H_\varepsilon$ and on which the flow is conjugate to $\varphi \mapsto \varphi + \omega_0(I_0)\, t$.*
 
-It is in this paradoxical condition — complete at its foundations, unbounded in its consequences — that celestial mechanics teaches a lesson that generalises far beyond itself.
+### 10.3 Proof idea: super-convergence
+
+The classical Lindstedt iteration converges like a geometric series with ratio $\varepsilon/\gamma^2$, which fails whenever $\gamma$ must shrink. Kolmogorov's innovation is **Newton-type iteration**: at step $k$, having removed the angle-dependence up to $O(\varepsilon_k)$, the next step removes it up to $O(\varepsilon_k^2)$. Even with small-divisor losses at each step, the quadratic convergence rate dominates:
+
+$$\varepsilon_{k+1} \leq C_k \varepsilon_k^2, \qquad \varepsilon_k \leq \varepsilon_0^{2^k} \cdot \text{(slowly growing factors)}.$$
+
+The estimate works provided the analyticity strip is shrunk geometrically at each step and the Diophantine condition is preserved. Complete proofs are found in Arnold–Kozlov–Neishtadt (2006), §4, and in Chierchia–Mather (2010).
+
+### 10.4 Lower-dimensional tori and Graff–Eliasson
+
+In degenerate systems — including the Kepler problem — KAM theorems for *lower-dimensional* (non-maximal) invariant tori are required. Graff (1974), Eliasson (1988), and Pöschel (1989) proved that, under *Melnikov non-resonance conditions* involving both normal and tangential frequencies, families of lower-dimensional tori persist under perturbation. These results underlie the modern theory of planetary motion: the solar system possesses a set of positive measure of quasi-periodic initial conditions, even though no single KAM torus of maximal dimension is known to exist for it.
 
 ---
 
-## 13. References and Further Reading
+## 11. Nekhoroshev Estimates and Arnold Diffusion
 
-**Classical Mechanics and Mathematical Methods**
+### 11.1 Steepness and Nekhoroshev's theorem
+
+A function $h: \mathbb{R}^n \to \mathbb{R}$ is **steep** on $D$ if, roughly, its restriction to any affine subspace has no critical points in the interior. Convex functions are steep; quasi-convex functions are steep; the Kepler Hamiltonian, though degenerate, becomes steep after secular averaging in $(G, H)$ variables.
+
+**Theorem (Nekhoroshev, 1977).** *Let $H_0$ be real-analytic and steep on $D \subset \mathbb{R}^n$. Let $H_\varepsilon = H_0 + \varepsilon H_1$ with $\|H_1\| \leq 1$. There exist constants $\varepsilon_0, T_0, C > 0$ and exponents $a, b > 0$ depending only on $n$ and on the steepness indices, such that for every $|\varepsilon| < \varepsilon_0$ and every initial action $I_0$:*
+
+$$|I(t) - I_0| \leq \varepsilon^b \qquad \text{for all}\quad |t| \leq T_0 \exp\!\left((\varepsilon_0/\varepsilon)^a\right).$$
+
+For convex $H_0$, optimal exponents are $a = b = 1/(2n)$ (Lochak, 1992). The theorem applies on *every* initial condition — not a Cantor set — but only for exponentially long, rather than infinite, time.
+
+### 11.2 Arnold diffusion
+
+For $n \geq 3$ degrees of freedom, the surviving KAM tori of codimension one do *not* foliate the energy surface; complementary regions are connected. Arnold (1964) constructed an explicit example of a Hamiltonian system in which orbits drift across resonance regions, traversing a finite range in action space — **Arnold diffusion**. The modern theory (Mather, Bernard, Cheng, Xia, Kaloshin, Marco, Sabbagh) establishes the genericity of diffusion in $C^r$ and analytic categories, with speeds bounded by the Nekhoroshev estimate.
+
+Astrodynamical relevance: the observed long-term chaos of the inner solar system (Laskar, 1989–2013) is believed to be a manifestation of slow diffusion along resonant networks. Numerical integrations over $10^9$ years display a Lyapunov time of $\sim 5\,$Myr and a probability of Mercurian ejection on the order of $1\%$ in the next $5\,$Gyr — a rate consistent with Nekhoroshev timescales for the observed system parameters.
+
+---
+
+## 12. Geometric Mechanics and Symplectic Reduction
+
+### 12.1 Group actions and the momentum map
+
+Let $G$ act on $(M, \omega)$ by symplectomorphisms, with infinitesimal generator $\xi_M$ for $\xi \in \mathfrak{g}$. A **momentum map** is a smooth $\mathbf{J}: M \to \mathfrak{g}^*$ satisfying
+
+$$\iota_{\xi_M}\omega = d\langle \mathbf{J}, \xi\rangle \quad \text{for all } \xi \in \mathfrak{g}.$$
+
+When $\mathbf{J}$ is $\mathrm{Ad}^*$-equivariant, it intertwines the $G$-action on $M$ with the coadjoint action on $\mathfrak{g}^*$.
+
+**Theorem (Noether, Hamiltonian form).** *If $H$ is $G$-invariant and $\mathbf{J}$ is a momentum map, then $\mathbf{J}$ is constant along the flow of $X_H$.*
+
+### 12.2 Marsden–Weinstein reduction
+
+**Theorem (Marsden–Weinstein, 1974).** *Let $\mathbf{J}: M \to \mathfrak{g}^*$ be an $\mathrm{Ad}^*$-equivariant momentum map for a free, proper $G$-action, and let $\mu \in \mathfrak{g}^*$ be a regular value. Let $G_\mu$ denote the isotropy subgroup of $\mu$ under the coadjoint action. Then*
+
+$$M_\mu := \mathbf{J}^{-1}(\mu) / G_\mu$$
+
+*is a smooth symplectic manifold of dimension $\dim M - \dim G - \dim G_\mu$. Any $G$-invariant Hamiltonian $H$ on $M$ descends to a Hamiltonian $H_\mu$ on $M_\mu$, and solutions of the Hamilton equations of $H_\mu$ lift (non-uniquely) to solutions of those of $H$.*
+
+### 12.3 Reduction of the Kepler problem
+
+The Kepler problem on $T^*\mathbb{R}^3$ is $SO(3)$-invariant, with momentum map $\mathbf{J} = \mathbf{L}$. For $\mu = \mathbf{L}_0 \neq 0$, $G_\mu = SO(2)$, and reduction yields
+
+$$\dim M_\mu = 6 - 3 - 1 = 2,$$
+
+a symplectic surface on which the reduced dynamics is the radial motion in the effective potential $V_{\text{eff}}(r) = L_0^2/(2r^2) - \mu/r$. The additional $SO(4)$-invariance allows a second stage of reduction, after which the Kepler problem collapses to a point: every orbit at fixed $(H, L, A)$ is a single point of the doubly-reduced space.
+
+### 12.4 Reconstruction and geometric phases
+
+Given a solution of the reduced system, reconstructing the full dynamics requires integration of the **mechanical connection** over the reduced trajectory. The holonomy of this connection along a closed reduced orbit is the **geometric phase** (Hannay angle), given by
+
+$$\Delta\varphi_{\text{geom}} = \oint_{\gamma_{\text{red}}} \mathcal{A},$$
+
+with $\mathcal{A}$ the mechanical connection one-form. For a satellite in a precessing orbital plane, the Hannay angle contributes a measurable shift in argument of periapsis additional to the secular drift — a purely kinematic effect of rotational reconstruction.
+
+---
+
+## 13. Ergodic Theory of Hamiltonian Flows
+
+### 13.1 Ergodicity
+
+Let $(\phi^t)$ preserve a probability measure $\mu$ on $M$. The flow is **ergodic** if every $\phi^t$-invariant measurable set has measure $0$ or $1$.
+
+**Theorem (Birkhoff, 1931).** *If $(\phi^t, \mu)$ is ergodic and $f \in L^1(\mu)$, then*
+
+$$\lim_{T\to\infty} \frac{1}{T}\int_0^T f(\phi^t x)\, dt = \int_M f\, d\mu \quad \text{for } \mu\text{-a.e. } x.$$
+
+Hamiltonian flows are generically *not* ergodic: the KAM theorem constructs a positive-measure set of quasi-periodic (non-ergodic) orbits. Ergodicity holds, when it holds, on individual energy surfaces, not on the full phase space — and even then, only after removing the KAM tori.
+
+### 13.2 Lyapunov exponents and Oseledets
+
+**Theorem (Oseledets, 1968).** *Let $(\phi^t, \mu)$ be a measure-preserving flow on a Riemannian manifold, with $\log\|D\phi^t\| \in L^1(\mu)$. For $\mu$-a.e. $x$, there exist real numbers $\lambda_1(x) > \cdots > \lambda_k(x)$ (the Lyapunov exponents) and a splitting $T_x M = \bigoplus_j E_j(x)$ such that*
+
+$$\lim_{t\to\infty}\frac{1}{t}\log\|D\phi^t(x) v\| = \lambda_j(x) \quad \text{for all } v \in E_j(x) \setminus \{0\}.$$
+
+For Hamiltonian flows on a $2n$-dimensional symplectic manifold, the Lyapunov spectrum is symmetric: $\lambda_{2n+1-j} = -\lambda_j$. Two Lyapunov exponents vanish identically (the flow direction and the energy gradient).
+
+### 13.3 The solar system Lyapunov time
+
+Numerical evidence (Sussman & Wisdom 1988, 1992; Laskar 1989, 2009) gives the Lyapunov time $T_\lambda = 1/\lambda_{\max}$ of the inner solar system as approximately $5\,\mathrm{Myr}$. Uncertainty in initial conditions at the metre scale therefore grows to the astronomical-unit scale in $\approx 150\,$Myr; deterministic prediction of planetary positions on geological timescales is mathematically impossible, even under classical gravity.
+
+### 13.4 Mixing and decay of correlations
+
+Ergodicity is a weak statement; *mixing* is stronger. A flow is **mixing** if $\mu(A \cap \phi^{-t}B) \to \mu(A)\mu(B)$ as $t \to \infty$. For hyperbolic systems (Anosov, geodesic flows on negatively curved manifolds, billiards in dispersing tables), exponential decay of correlations for Hölder observables is known (Dolgopyat, Liverani). For Hamiltonian systems with divided phase space — the generic celestial-mechanics situation — the decay is at most polynomial and is controlled by the stickiness of KAM tori.
+
+---
+
+## 14. Relativistic Celestial Mechanics
+
+### 14.1 The geodesic equation
+
+In general relativity, a free-falling body of negligible mass follows a timelike geodesic of a Lorentzian metric $g$. In local coordinates,
+
+$$\ddot x^\mu + \Gamma^\mu_{\nu\rho}\dot x^\nu \dot x^\rho = 0, \qquad \Gamma^\mu_{\nu\rho} = \tfrac12 g^{\mu\sigma}(\partial_\nu g_{\sigma\rho} + \partial_\rho g_{\sigma\nu} - \partial_\sigma g_{\nu\rho}).$$
+
+The metric is determined by Einstein's field equations,
+
+$$R_{\mu\nu} - \tfrac12 R g_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4} T_{\mu\nu}.$$
+
+### 14.2 The Schwarzschild solution
+
+The unique static, spherically symmetric, asymptotically flat vacuum solution is
+
+$$ds^2 = -\left(1 - \frac{r_s}{r}\right)c^2\, dt^2 + \left(1 - \frac{r_s}{r}\right)^{-1} dr^2 + r^2(d\theta^2 + \sin^2\theta\, d\phi^2), \qquad r_s = \frac{2 G M}{c^2}.$$
+
+### 14.3 Geodesic equation in the equatorial plane
+
+Setting $\theta = \pi/2$ and using the Killing vectors $\partial_t, \partial_\phi$ (energy $\tilde E$, angular momentum $\tilde L$), the radial equation for massive particles is
+
+$$\left(\frac{dr}{d\lambda}\right)^2 = \tilde E^2 - \left(1 - \frac{r_s}{r}\right)\left(1 + \frac{\tilde L^2}{r^2}\right).$$
+
+The effective potential contains, in addition to the Newtonian terms, a $-r_s \tilde L^2 / r^3$ contribution responsible for the relativistic perihelion precession and the existence of innermost stable circular orbits.
+
+### 14.4 Post-Newtonian expansion
+
+Expanding in $v/c$ and $r_s/r$ yields the **parameterised post-Newtonian (PPN)** equations of motion,
+
+$$\ddot{\mathbf{r}} = -\frac{\mu}{r^3}\mathbf{r} + \frac{\mu}{c^2 r^3}\left[\left((2\beta + 2\gamma)\frac{\mu}{r} - \gamma v^2\right)\mathbf{r} + 2(1 + \gamma)(\mathbf{r}\cdot\dot{\mathbf{r}})\dot{\mathbf{r}}\right] + O(c^{-4}),$$
+
+with $\beta = \gamma = 1$ in general relativity. The leading orbital effect is a secular precession of periapsis,
+
+$$\Delta\omega_{\text{GR}} = \frac{6\pi G M}{c^2 a(1 - e^2)} = \frac{3\pi r_s}{a(1-e^2)} \quad \text{per orbit}.$$
+
+For Mercury ($a \approx 0.387\,\mathrm{AU}$, $e \approx 0.2056$), this gives $\Delta\omega_{\text{GR}} \approx 0.1035''$ per orbit, or $42.98''$/century — agreeing with observation to the precision to which both sides are known.
+
+### 14.5 Frame dragging and the Lense–Thirring effect
+
+For a rotating central body of angular momentum $\mathbf{S}$, the Kerr metric introduces a gravitomagnetic term that produces **Lense–Thirring precession** of the orbital angular momentum,
+
+$$\dot{\mathbf{L}}_{\text{LT}} = \frac{2 G}{c^2 a^3 (1 - e^2)^{3/2}}\left[\mathbf{S} - 3(\mathbf{S}\cdot\hat{\mathbf{n}})\hat{\mathbf{n}}\right] \times \mathbf{L},$$
+
+with $\hat{\mathbf{n}}$ the unit normal to the orbit plane. Measured by Gravity Probe B (Everitt et al., 2011) at $37.2 \pm 7.2\,\mathrm{mas/yr}$, in agreement with GR prediction $39.2\,\mathrm{mas/yr}$.
+
+---
+
+## 15. Structure-Preserving Numerical Integration
+
+### 15.1 Symplectic integrators
+
+A one-step map $\Phi_h: M \to M$ is **symplectic** if $\Phi_h^* \omega = \omega$. The composition of symplectic maps is symplectic; splitting a Hamiltonian $H = T(p) + V(q)$ and composing $\phi^{h/2}_T \circ \phi^h_V \circ \phi^{h/2}_T$ produces the **Störmer–Verlet (leapfrog)** scheme, a symmetric, second-order symplectic integrator. Higher-order composites (Yoshida 1990) provide arbitrary even order via nested compositions with carefully chosen coefficients.
+
+### 15.2 Backward error analysis
+
+**Theorem (backward error, Benettin–Giorgilli, Hairer–Lubich–Wanner).** *Let $\Phi_h$ be a real-analytic symplectic integrator of order $p$ for a real-analytic Hamiltonian $H$, on a compact domain. There exist a formal Hamiltonian*
+
+$$\tilde H(h) = H + h^p H_p + h^{p+1} H_{p+1} + \cdots$$
+
+*and constants $C, h_0 > 0$ such that, truncating the series at the optimal index $N(h) \sim h_0 / h$,*
+
+$$\|\Phi_h(z) - \phi^h_{\tilde H_N}(z)\| \leq C h\, \exp(-h_0/h).$$
+
+In plain terms: a symplectic integrator does not solve $H$, but *exactly* (up to exponentially small errors) solves a nearby Hamiltonian $\tilde H$. The numerical trajectory is an exact trajectory of a slightly-perturbed problem — an exceedingly strong guarantee.
+
+### 15.3 Consequences for orbital integration
+
+- **Energy.** $H(\Phi_h^n z_0) - H(z_0) = O(h^p)$ and *does not drift* on exponentially long timescales $n \leq \exp(h_0/h)$.
+- **KAM.** The perturbed Hamiltonian $\tilde H$ admits its own KAM tori; provided $h$ is small enough that $\tilde H$ lies within the KAM radius of $H$, numerical trajectories capture quasi-periodic motion correctly over astronomically long times.
+- **First integrals.** Quadratic invariants (angular momentum of linear Hamiltonian actions) are preserved *exactly* by Gauss–Legendre Runge–Kutta methods; generic invariants (LRL vector) are preserved only approximately.
+
+### 15.4 Non-symplectic methods
+
+Classical Runge–Kutta methods (RK4, RK45, DOPRI5) are not symplectic: they have no modified Hamiltonian, and energy errors accumulate *secularly*,
+
+$$|H(\Phi_h^n z_0) - H(z_0)| \leq C n h^{p+1},$$
+
+rather than remaining bounded. For propagations beyond a few Lyapunov times, this secular drift dominates, and qualitative features of the flow (periapsis structure, resonance capture) are lost. For short-duration mission-analysis computations — the regime of the Mission Design Visualizer — the error remains numerically acceptable; for long-term solar-system integrations, symplectic methods are indispensable.
+
+### 15.5 Shadowing
+
+**Theorem (Anosov, Bowen).** *Let $\phi^t$ be the flow of a uniformly hyperbolic Hamiltonian system on a compact invariant set $\Lambda$. For every $\varepsilon > 0$ there is $\delta > 0$ such that every $\delta$-pseudo-orbit $(z_n)_{n \in \mathbb{Z}}$ is $\varepsilon$-shadowed by a true orbit: there exists $z$ with $\|\phi^{nh}(z) - z_n\| < \varepsilon$ for all $n$.*
+
+A numerically computed trajectory is, generically, a pseudo-orbit. The shadowing theorem asserts that, in hyperbolic regimes, some true orbit of the system lies uniformly near it — not the one issuing from the nominal initial condition, but some orbit of the same system. This is the strongest available guarantee of the faithfulness of numerical computation in chaotic regimes.
+
+---
+
+## 16. References
+
+**Analytical mechanics and symplectic geometry**
 
 - Arnold, V. I. *Mathematical Methods of Classical Mechanics* (2nd ed.). Springer, 1989.
 - Abraham, R. & Marsden, J. E. *Foundations of Mechanics* (2nd ed.). Benjamin/Cummings, 1978.
 - Marsden, J. E. & Ratiu, T. S. *Introduction to Mechanics and Symmetry* (2nd ed.). Springer, 1999.
-- Goldstein, H., Poole, C. & Safko, J. *Classical Mechanics* (3rd ed.). Addison-Wesley, 2001.
-- Landau, L. D. & Lifshitz, E. M. *Mechanics* (3rd ed.). Pergamon, 1976.
+- McDuff, D. & Salamon, D. *Introduction to Symplectic Topology* (3rd ed.). Oxford University Press, 2017.
+- Souriau, J.-M. *Structure des Systèmes Dynamiques*. Dunod, 1970.
 
-**Celestial Mechanics**
+**Celestial mechanics**
 
 - Poincaré, H. *Les Méthodes Nouvelles de la Mécanique Céleste*, Vols. I–III. Gauthier-Villars, 1892–1899.
 - Brouwer, D. & Clemence, G. M. *Methods of Celestial Mechanics*. Academic Press, 1961.
-- Morbidelli, A. *Modern Celestial Mechanics: Aspects of Solar System Dynamics*. Taylor & Francis, 2002.
+- Morbidelli, A. *Modern Celestial Mechanics*. Taylor & Francis, 2002.
 - Szebehely, V. *Theory of Orbits: The Restricted Problem of Three Bodies*. Academic Press, 1967.
+- Stiefel, E. L. & Scheifele, G. *Linear and Regular Celestial Mechanics*. Springer, 1971.
+- Moser, J. "Regularization of Kepler's problem and the averaging method on a manifold." *Comm. Pure Appl. Math.* 23 (1970), 609–636.
 
-**Integrability, KAM Theory, and Chaos**
+**KAM, Nekhoroshev, and Arnold diffusion**
 
 - Arnold, V. I., Kozlov, V. V. & Neishtadt, A. I. *Mathematical Aspects of Classical and Celestial Mechanics* (3rd ed.). Springer, 2006.
 - Moser, J. *Stable and Random Motions in Dynamical Systems*. Princeton University Press, 1973.
-- Chierchia, L. & Mather, J. N. "Kolmogorov–Arnold–Moser Theory." *Scholarpedia*, 5(9):2123, 2010.
-- Lichtenberg, A. J. & Lieberman, M. A. *Regular and Chaotic Dynamics* (2nd ed.). Springer, 1992.
+- Chierchia, L. & Mather, J. N. "Kolmogorov–Arnold–Moser Theory." *Scholarpedia* 5(9):2123, 2010.
+- Nekhoroshev, N. N. "An exponential estimate of the time of stability of nearly-integrable Hamiltonian systems." *Russian Math. Surveys* 32 (1977), 1–65.
+- Lochak, P. "Canonical perturbation theory via simultaneous approximation." *Russian Math. Surveys* 47 (1992), 57–133.
+- Arnold, V. I. "Instability of dynamical systems with several degrees of freedom." *Soviet Math. Dokl.* 5 (1964), 581–585.
+- Laskar, J. "A numerical experiment on the chaotic behaviour of the solar system." *Nature* 338 (1989), 237–238.
 
-**Geometric Mechanics and Symplectic Geometry**
+**Ergodic theory**
 
-- Souriau, J.-M. *Structure des Systèmes Dynamiques*. Dunod, 1970. (English: *Structure of Dynamical Systems*, Birkhäuser, 1997.)
-- McDuff, D. & Salamon, D. *Introduction to Symplectic Topology* (3rd ed.). Oxford University Press, 2017.
+- Katok, A. & Hasselblatt, B. *Introduction to the Modern Theory of Dynamical Systems*. Cambridge University Press, 1995.
+- Cornfeld, I. P., Fomin, S. V. & Sinai, Ya. G. *Ergodic Theory*. Springer, 1982.
 
-**General Relativity**
+**General relativity**
 
 - Misner, C. W., Thorne, K. S. & Wheeler, J. A. *Gravitation*. W. H. Freeman, 1973.
 - Wald, R. M. *General Relativity*. University of Chicago Press, 1984.
+- Weinberg, S. *Gravitation and Cosmology*. Wiley, 1972.
+- Will, C. M. *Theory and Experiment in Gravitational Physics* (2nd ed.). Cambridge University Press, 2018.
 
-**Geometric and Symplectic Integration**
+**Geometric and symplectic integration**
 
 - Hairer, E., Lubich, C. & Wanner, G. *Geometric Numerical Integration* (2nd ed.). Springer, 2006.
 - Leimkuhler, B. & Reich, S. *Simulating Hamiltonian Dynamics*. Cambridge University Press, 2004.
-
-**Philosophy of Physics**
-
-- Earman, J. *A Primer on Determinism*. Reidel, 1986.
-- Sklar, L. *Philosophy of Physics*. Oxford University Press, 1992.
-- Smith, G. E. "The Methodology of the *Principia*." In *The Cambridge Companion to Newton*, Cambridge University Press, 2002.
+- Benettin, G. & Giorgilli, A. "On the Hamiltonian interpolation of near-to-the-identity symplectic mappings." *J. Stat. Phys.* 74 (1994), 1117–1143.
+- Yoshida, H. "Construction of higher order symplectic integrators." *Phys. Lett. A* 150 (1990), 262–268.
 
 ---
 
